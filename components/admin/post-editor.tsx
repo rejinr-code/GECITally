@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
-import { formatNumber, initials } from "@/lib/utils";
+import { formatNumber, initials, postSerial } from "@/lib/utils";
 
 type PostWithCandidates = Post & { candidates: Candidate[] };
 
@@ -37,9 +37,16 @@ export function PostEditor({
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-2 border-emerald-600 bg-gradient-to-br from-emerald-50 via-white to-amber-50 shadow-[0_18px_40px_-24px_rgba(4,120,87,0.85)] ring-4 ring-emerald-100">
         <CardHeader>
-          <CardTitle>Add post</CardTitle>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
+            New post
+          </p>
+          <CardTitle className="mt-1 text-xl text-emerald-950">Add post</CardTitle>
+          <p className="mt-1 text-sm text-emerald-800/80">
+            Use this form to create another union post. Numbered posts already in the election are listed
+            below.
+          </p>
         </CardHeader>
         <CardContent>
           <form
@@ -60,7 +67,7 @@ export function PostEditor({
             <input type="hidden" name="election_id" value={electionId} />
             <div className="space-y-2">
               <Label htmlFor="post-name">Post name</Label>
-              <Input id="post-name" name="name" placeholder="Chairman" required />
+              <Input id="post-name" name="name" placeholder="Chairperson" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="seats">Seats</Label>
@@ -89,9 +96,10 @@ export function PostEditor({
         </CardContent>
       </Card>
 
-      {posts.map((post) => (
+      {posts.map((post, index) => (
         <PostCard
           key={post.id}
+          number={postSerial(post, index)}
           post={post}
           panels={panels}
           countingStarted={countingStarted}
@@ -102,10 +110,12 @@ export function PostEditor({
 }
 
 function PostCard({
+  number,
   post,
   panels,
   countingStarted,
 }: {
+  number: number;
   post: PostWithCandidates;
   panels: Panel[];
   countingStarted: boolean;
@@ -117,7 +127,10 @@ function PostCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
-        <div>
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-sm font-semibold tabular-nums text-white">
+            {number}
+          </span>
           <CardTitle className="flex flex-wrap items-center gap-2">
             {post.name}
             <Badge variant="secondary">

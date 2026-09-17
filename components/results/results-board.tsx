@@ -9,7 +9,7 @@ import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber, percent } from "@/lib/utils";
+import { formatDate, formatNumber, percent, postSerial } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const BIG_SCREEN_KEY = "geci-big-screen";
@@ -200,7 +200,7 @@ export function ResultsBoard() {
                       : "bg-emerald-900/80 text-emerald-100 hover:bg-emerald-800",
                   )}
                 >
-                  {post.name}
+                  {postSerial(post, index)}. {post.name}
                 </button>
               ))}
             </div>

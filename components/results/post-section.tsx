@@ -7,7 +7,7 @@ import { LiveCounter } from "@/components/results/live-counter";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import type { LivePost } from "@/lib/types";
-import { formatNumber, percent } from "@/lib/utils";
+import { formatNumber, percent, postSerial } from "@/lib/utils";
 
 const SLICE_COLORS = [
   "#059669",
@@ -54,6 +54,9 @@ export function PostSection({
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-sm font-semibold tabular-nums text-white md:size-9 md:text-base">
+              {postSerial(post, 0)}
+            </span>
             <h2 className="text-xl font-semibold tracking-tight md:text-2xl">{post.name}</h2>
             <Badge variant="secondary">
               {post.seats} seat{post.seats > 1 ? "s" : ""}

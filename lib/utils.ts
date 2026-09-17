@@ -28,6 +28,10 @@ export function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
 }
 
+export function postSerial(post: { display_order?: number | null }, index: number) {
+  return post.display_order && post.display_order > 0 ? post.display_order : index + 1;
+}
+
 export function percent(part: number, total: number) {
   if (total <= 0) return 0;
   return Math.round((part / total) * 1000) / 10;

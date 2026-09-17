@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
+import { postSerial } from "@/lib/utils";
 
 type StaffRow = Profile & { assigned_post_ids: string[] };
 
@@ -97,10 +98,10 @@ function CreateAccountForm({ posts }: { posts: Post[] }) {
             Counting staff can enter votes only for the posts you assign here.
           </p>
           <div className="flex flex-wrap gap-3">
-            {posts.map((post) => (
+            {posts.map((post, index) => (
               <label key={post.id} className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="post_ids" value={post.id} />
-                {post.name}
+                {postSerial(post, index)}. {post.name}
               </label>
             ))}
           </div>
@@ -180,7 +181,7 @@ function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
         </select>
       </div>
       <div className="flex flex-wrap gap-3">
-        {posts.map((post) => (
+        {posts.map((post, index) => (
           <label key={post.id} className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -193,7 +194,7 @@ function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
                 );
               }}
             />
-            {post.name}
+            {postSerial(post, index)}. {post.name}
           </label>
         ))}
       </div>
