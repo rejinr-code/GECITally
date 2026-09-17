@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, initials } from "@/lib/utils";
 
 type PostWithCandidates = Post & { candidates: Candidate[] };
 
@@ -289,8 +289,8 @@ function PostCard({
             )}
           </div>
           <div className="space-y-2">
-            <Label>Photo URL</Label>
-            <Input name="photo_url" placeholder="https://..." />
+            <Label htmlFor={`photo-${post.id}`}>Photo</Label>
+            <PhotoField id={`photo-${post.id}`} />
           </div>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Spinner /> : null}
@@ -356,13 +356,8 @@ function CandidateRow({
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor={`cand-photo-${candidate.id}`}>Photo URL</Label>
-            <Input
-              id={`cand-photo-${candidate.id}`}
-              name="photo_url"
-              defaultValue={candidate.photo_url ?? ""}
-              placeholder="https://..."
-            />
+            <Label htmlFor={`cand-photo-${candidate.id}`}>Photo</Label>
+            <PhotoField id={`cand-photo-${candidate.id}`} currentUrl={candidate.photo_url} />
           </div>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={isSubmitting}>
@@ -380,9 +375,23 @@ function CandidateRow({
 
   return (
     <li className="flex items-center justify-between gap-3 rounded-lg bg-muted/60 px-3 py-2">
-      <div>
-        <p className="font-medium">{candidate.name}</p>
-        <p className="text-xs text-muted-foreground">{candidate.panel_name || "Independent"}</p>
+      <div className="flex min-w-0 items-center gap-3">
+        {candidate.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={candidate.photo_url}
+            alt=""
+            className="size-9 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex size-9 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-800">
+            {initials(candidate.name)}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="font-medium">{candidate.name}</p>
+          <p className="text-xs text-muted-foreground">{candidate.panel_name || "Independent"}</p>
+        </div>
       </div>
       <div className="flex gap-1">
         <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(true)}>
@@ -404,5 +413,45 @@ function CandidateRow({
         </Button>
       </div>
     </li>
+  );
+}
+
+function PhotoField({
+  id,
+  currentUrl,
+}: {
+  id: string;
+  currentUrl?: string | null;
+}) {
+  const [preview, setPreview] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-2">
+      {(preview || currentUrl) && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={preview || currentUrl || ""}
+          alt=""
+          className="size-14 rounded-full object-cover ring-1 ring-emerald-900/10"
+        />
+      )}
+      <Input
+        id={id}
+        name="photo"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="pt-1.5 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-emerald-800"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          setPreview(file ? URL.createObjectURL(file) : null);
+        }}
+      />
+      {currentUrl && !preview && (
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" name="remove_photo" value="1" className="size-3.5" />
+          Remove current photo
+        </label>
+      )}
+    </div>
   );
 }

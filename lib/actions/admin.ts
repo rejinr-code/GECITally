@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ElectionState, UserRole } from "@/lib/types";
+import { deleteCandidatePhoto, uploadCandidatePhoto } from "@/lib/storage/candidate-photos";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -143,18 +144,44 @@ export async function saveCandidate(formData: FormData) {
     const payload = {
       post_id: String(formData.get("post_id") ?? ""),
       name: String(formData.get("name") ?? "").trim(),
-      photo_url: String(formData.get("photo_url") ?? "").trim() || null,
       panel_id,
       panel_name,
       display_order: Number(formData.get("display_order") ?? 0),
     };
     if (!payload.name) return { error: "Candidate name is required." };
+    if (!payload.post_id) return { error: "Post is required." };
+
+    let photo_url: string | null = null;
+    if (id) {
+      const { data: existing } = await supabase
+        .from("candidates")
+        .select("photo_url")
+        .eq("id", id)
+        .maybeSingle();
+      photo_url = existing?.photo_url ?? null;
+      if (formData.get("remove_photo") === "1") {
+        await deleteCandidatePhoto(photo_url);
+        photo_url = null;
+      }
+    }
+
+    const photo = formData.get("photo");
+    if (photo instanceof File && photo.size > 0) {
+      const uploaded = await uploadCandidatePhoto(photo, payload.post_id);
+      if (uploaded.error) return { error: uploaded.error };
+      if (uploaded.url) {
+        await deleteCandidatePhoto(photo_url);
+        photo_url = uploaded.url;
+      }
+    }
+
+    const row = { ...payload, photo_url };
 
     if (id) {
-      const { error } = await supabase.from("candidates").update(payload).eq("id", id);
+      const { error } = await supabase.from("candidates").update(row).eq("id", id);
       if (error) return { error: error.message };
     } else {
-      const { error } = await supabase.from("candidates").insert(payload);
+      const { error } = await supabase.from("candidates").insert(row);
       if (error) return { error: error.message };
     }
     revalidatePath("/admin");
@@ -168,9 +195,16 @@ export async function saveCandidate(formData: FormData) {
 export async function deleteCandidate(candidateId: string) {
   try {
     const { supabase } = await requireAdmin();
+    const { data: existing } = await supabase
+      .from("candidates")
+      .select("photo_url")
+      .eq("id", candidateId)
+      .maybeSingle();
     const { error } = await supabase.from("candidates").delete().eq("id", candidateId);
     if (error) return { error: error.message };
+    await deleteCandidatePhoto(existing?.photo_url);
     revalidatePath("/admin");
+    revalidatePath("/results");
     return { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not delete candidate." };
