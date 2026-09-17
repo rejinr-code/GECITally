@@ -1,4 +1,5 @@
 import { BrandLockup } from "@/components/branding/geci-mark";
+import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,7 +12,7 @@ export default async function LoginPage({
   const next = Array.isArray(params.next) ? params.next[0] : params.next;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_#d1fae5,_#f8fafc_50%)] px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_#d1fae5,_#f8fafc_50%)] px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <BrandLockup />
@@ -24,6 +25,9 @@ export default async function LoginPage({
           <LoginForm next={next} />
         </CardContent>
       </Card>
+      <div className="mt-7">
+        <MulearnCredit />
+      </div>
     </div>
   );
 }

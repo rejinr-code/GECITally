@@ -24,6 +24,14 @@ export type Post = {
   election_id: string;
   name: string;
   seats: number;
+  votes_polled: number;
+  display_order: number;
+};
+
+export type Panel = {
+  id: string;
+  election_id: string;
+  name: string;
   display_order: number;
 };
 
@@ -32,6 +40,7 @@ export type Candidate = {
   post_id: string;
   name: string;
   photo_url: string | null;
+  panel_id: string | null;
   panel_name: string | null;
   display_order: number;
 };
@@ -74,6 +83,7 @@ export type LivePost = {
   id: string;
   name: string;
   seats: number;
+  votes_polled: number;
   display_order: number;
   verified_rounds: number;
   pending_rounds: number;

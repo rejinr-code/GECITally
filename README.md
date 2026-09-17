@@ -37,7 +37,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 In the Supabase SQL editor, run in order:
 
 1. `supabase/migrations/0001_init.sql`
-2. `supabase/seed.sql` (optional demo posts/candidates)
+2. `supabase/migrations/0002_panels_and_post_votes.sql`
+3. `supabase/seed.sql` (optional demo posts/candidates)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -67,7 +68,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Path | Role | Purpose |
 |---|---|---|
-| `/admin` | admin | Posts, candidates, staff, count limit, election state |
+| `/admin` | admin | Panels, posts, candidates, staff, count limit, election state |
 | `/staff` | staff | Enter per-candidate counts for assigned posts |
 | `/supervisor` | supervisor | Verify or reject submitted rounds |
 | `/results` | public | Live animated results (no login) |

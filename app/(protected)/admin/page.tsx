@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { ElectionSettings } from "@/components/admin/election-settings";
+import { PanelManager } from "@/components/admin/panel-manager";
 import { PostEditor } from "@/components/admin/post-editor";
 import { StaffManager } from "@/components/admin/staff-manager";
-import type { Candidate, Election, Post, Profile } from "@/lib/types";
+import type { Candidate, Election, Panel, Post, Profile } from "@/lib/types";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -34,6 +35,18 @@ export default async function AdminPage() {
 
   const { data: assignments } = await supabase.from("staff_assignments").select("*");
 
+  let panels: Panel[] = [];
+  let schemaNeedsUpdate = false;
+  if (election) {
+    const { data, error } = await supabase
+      .from("panels")
+      .select("*")
+      .eq("election_id", election.id)
+      .order("display_order");
+    if (error) schemaNeedsUpdate = true;
+    else panels = (data ?? []) as Panel[];
+  }
+
   const postsWithCandidates = (posts ?? []).map((post) => ({
     ...post,
     candidates: (candidates ?? []).filter((candidate) => candidate.post_id === post.id),
@@ -51,15 +64,26 @@ export default async function AdminPage() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Admin configuration</h1>
         <p className="mt-1 text-muted-foreground">
-          Set up the election, posts, candidates, and counting duty before opening the count.
+          Set up the election, panels, posts, candidates, and counting duty before opening the count.
         </p>
+        {schemaNeedsUpdate && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            Run <code className="font-medium">supabase/migrations/0002_panels_and_post_votes.sql</code> in
+            the Supabase SQL editor to enable panels and per-post votes polled.
+          </p>
+        )}
       </div>
       <ElectionSettings election={(election as Election | null) ?? null} />
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Panels</h2>
+        <PanelManager electionId={election?.id ?? null} panels={panels} />
+      </section>
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Posts and candidates</h2>
         <PostEditor
           electionId={election?.id ?? null}
           posts={postsWithCandidates}
+          panels={panels}
           countingStarted={election?.state !== "setup"}
         />
       </section>

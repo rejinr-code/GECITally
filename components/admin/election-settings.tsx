@@ -47,7 +47,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
               <Input id="date" name="date" type="date" defaultValue={election?.date ?? ""} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="total_votes_polled">Total votes polled</Label>
+              <Label htmlFor="total_votes_polled">Overall votes polled</Label>
               <Input
                 id="total_votes_polled"
                 name="total_votes_polled"
@@ -55,6 +55,10 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 min={0}
                 defaultValue={election?.total_votes_polled ?? 0}
               />
+              <p className="text-xs text-muted-foreground">
+                Optional election-wide summary. Each post also needs its own votes polled — that
+                figure is what the live results screen uses.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="count_limit">Count finalisation limit (N)</Label>

@@ -82,10 +82,16 @@ export async function savePost(formData: FormData) {
       election_id: String(formData.get("election_id") ?? ""),
       name: String(formData.get("name") ?? "").trim(),
       seats: Number(formData.get("seats") ?? 1),
+      votes_polled: Number(formData.get("votes_polled") ?? 0),
       display_order: Number(formData.get("display_order") ?? 0),
     };
     if (!payload.name) return { error: "Post name is required." };
     if (payload.seats < 1) return { error: "Seats must be at least 1." };
+    const votesRaw = String(formData.get("votes_polled") ?? "").trim();
+    if (votesRaw === "") return { error: "Votes polled is required for each post." };
+    if (!Number.isInteger(payload.votes_polled) || payload.votes_polled < 0) {
+      return { error: "Votes polled must be a whole number of 0 or more." };
+    }
 
     if (id) {
       const { error } = await supabase.from("posts").update(payload).eq("id", id);
@@ -95,6 +101,7 @@ export async function savePost(formData: FormData) {
       if (error) return { error: error.message };
     }
     revalidatePath("/admin");
+    revalidatePath("/results");
     return { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not save post." };
@@ -117,11 +124,28 @@ export async function saveCandidate(formData: FormData) {
   try {
     const { supabase } = await requireAdmin();
     const id = String(formData.get("id") ?? "");
+    const panelId = String(formData.get("panel_id") ?? "").trim();
+    let panel_id: string | null = null;
+    let panel_name: string | null = null;
+
+    if (panelId) {
+      const { data: panel, error: panelError } = await supabase
+        .from("panels")
+        .select("id, name")
+        .eq("id", panelId)
+        .maybeSingle();
+      if (panelError) return { error: panelError.message };
+      if (!panel) return { error: "Select a configured panel, or Independent." };
+      panel_id = panel.id;
+      panel_name = panel.name;
+    }
+
     const payload = {
       post_id: String(formData.get("post_id") ?? ""),
       name: String(formData.get("name") ?? "").trim(),
       photo_url: String(formData.get("photo_url") ?? "").trim() || null,
-      panel_name: String(formData.get("panel_name") ?? "").trim() || null,
+      panel_id,
+      panel_name,
       display_order: Number(formData.get("display_order") ?? 0),
     };
     if (!payload.name) return { error: "Candidate name is required." };
@@ -150,6 +174,51 @@ export async function deleteCandidate(candidateId: string) {
     return { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not delete candidate." };
+  }
+}
+
+export async function savePanel(formData: FormData) {
+  try {
+    const { supabase } = await requireAdmin();
+    const id = String(formData.get("id") ?? "");
+    const payload = {
+      election_id: String(formData.get("election_id") ?? ""),
+      name: String(formData.get("name") ?? "").trim(),
+      display_order: Number(formData.get("display_order") ?? 0),
+    };
+    if (!payload.election_id) return { error: "Save election metadata first." };
+    if (!payload.name) return { error: "Panel name is required." };
+
+    if (id) {
+      const { error } = await supabase.from("panels").update(payload).eq("id", id);
+      if (error) return { error: error.message };
+    } else {
+      const { error } = await supabase.from("panels").insert(payload);
+      if (error) {
+        if (error.message.includes("panels_election_id_name_key") || error.code === "23505") {
+          return { error: "A panel with that name already exists." };
+        }
+        return { error: error.message };
+      }
+    }
+    revalidatePath("/admin");
+    revalidatePath("/results");
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not save panel." };
+  }
+}
+
+export async function deletePanel(panelId: string) {
+  try {
+    const { supabase } = await requireAdmin();
+    const { error } = await supabase.from("panels").delete().eq("id", panelId);
+    if (error) return { error: error.message };
+    revalidatePath("/admin");
+    revalidatePath("/results");
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not delete panel." };
   }
 }
 

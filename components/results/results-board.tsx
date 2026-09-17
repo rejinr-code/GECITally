@@ -6,6 +6,7 @@ import { useRealtimeResults } from "@/hooks/use-realtime-results";
 import { PostSection } from "@/components/results/post-section";
 import { LiveCounter } from "@/components/results/live-counter";
 import { GeciMark } from "@/components/branding/geci-mark";
+import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatNumber, percent } from "@/lib/utils";
@@ -132,7 +133,7 @@ export function ResultsBoard() {
             </div>
           </div>
           <div className="hidden items-center gap-5 sm:flex">
-            <Stat label="Polled" value={election.total_votes_polled} />
+            <Stat label="Polled" value={current?.votes_polled ?? election.total_votes_polled} />
             <Stat label="Verified" value={totalVotes} />
           </div>
           <Button
@@ -159,8 +160,10 @@ export function ResultsBoard() {
               transition={{ duration: 0.45, ease: "easeOut" }}
             >
               <PostSection
-                post={current}
-                votesPolled={election.total_votes_polled}
+                post={{
+                  ...current,
+                  votes_polled: current.votes_polled ?? election.total_votes_polled,
+                }}
                 countLimit={election.count_limit}
                 flashKey={flashKey}
               />
@@ -171,34 +174,41 @@ export function ResultsBoard() {
         )}
       </main>
 
-      {posts.length > 0 && (
-        <footer className="shrink-0 border-t border-emerald-900/10 bg-emerald-950 px-3 py-2 text-white md:px-4">
+      {posts.length > 0 ? (
+        <footer className="shrink-0 border-t border-amber-200/10 bg-[#06281d] px-3 py-2 text-white md:px-4">
           <div
             key={cycle}
-            className="mb-2 h-0.5 overflow-hidden rounded-full bg-emerald-900"
+            className="mb-2 h-0.5 overflow-hidden rounded-full bg-emerald-900/80"
           >
             <div
-              className="h-full bg-emerald-400"
+              className="h-full bg-amber-300"
               style={{ animation: `resultsRotate ${POST_ROTATE_MS}ms linear` }}
             />
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-1.5">
-            {posts.map((post, index) => (
-              <button
-                key={post.id}
-                type="button"
-                onClick={() => showPost(index)}
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-xs transition",
-                  index === safeIndex
-                    ? "bg-white text-emerald-950"
-                    : "bg-emerald-900/80 text-emerald-100 hover:bg-emerald-800",
-                )}
-              >
-                {post.name}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <MulearnCredit light compact />
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {posts.map((post, index) => (
+                <button
+                  key={post.id}
+                  type="button"
+                  onClick={() => showPost(index)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs transition",
+                    index === safeIndex
+                      ? "bg-white text-emerald-950"
+                      : "bg-emerald-900/80 text-emerald-100 hover:bg-emerald-800",
+                  )}
+                >
+                  {post.name}
+                </button>
+              ))}
+            </div>
           </div>
+        </footer>
+      ) : (
+        <footer className="shrink-0 border-t border-amber-200/10 bg-[#06281d] px-3 py-2 md:px-4">
+          <MulearnCredit light compact />
         </footer>
       )}
     </div>

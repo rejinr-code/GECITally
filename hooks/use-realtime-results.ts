@@ -63,6 +63,21 @@ export function useRealtimeResults() {
         { event: "*", schema: "public", table: "count_entries" },
         schedule,
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts" },
+        schedule,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "candidates" },
+        schedule,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "panels" },
+        schedule,
+      )
       .subscribe();
 
     return () => {

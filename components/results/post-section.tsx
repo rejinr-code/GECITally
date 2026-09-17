@@ -22,18 +22,17 @@ const SLICE_COLORS = [
 
 export function PostSection({
   post,
-  votesPolled,
   countLimit,
   flashKey,
 }: {
   post: LivePost;
-  votesPolled: number;
   countLimit: number;
   flashKey: number;
 }) {
   const ranked = [...post.candidates].sort((a, b) => b.votes - a.votes);
   const maxVotes = ranked[0]?.votes ?? 0;
   const voteTotal = ranked.reduce((sum, candidate) => sum + candidate.votes, 0);
+  const votesPolled = post.votes_polled ?? 0;
   const chartData = ranked.map((candidate, index) => ({
     name: candidate.name,
     shortName: candidate.name.split(" ")[0] ?? candidate.name,

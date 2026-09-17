@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/branding/geci-mark";
+import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
@@ -48,6 +49,11 @@ export default function HomePage() {
           ))}
         </div>
       </main>
+      <footer className="border-t border-emerald-100/80 bg-white/55">
+        <div className="mx-auto flex max-w-6xl items-center px-4 py-5">
+          <MulearnCredit />
+        </div>
+      </footer>
     </div>
   );
 }
