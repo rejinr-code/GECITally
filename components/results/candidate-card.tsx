@@ -38,10 +38,10 @@ export function CandidateCard({
           <img
             src={candidate.photo_url}
             alt=""
-            className="size-12 rounded-full object-cover"
+            className="size-10 rounded-full object-cover"
           />
         ) : (
-          <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800">
+          <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800">
             {initials(candidate.name)}
           </div>
         )}
@@ -55,7 +55,7 @@ export function CandidateCard({
             <p className="text-xs text-muted-foreground">{candidate.panel_name}</p>
           )}
         </div>
-        <LiveCounter value={candidate.votes} className="text-2xl font-semibold tabular-nums text-emerald-800" />
+        <LiveCounter value={candidate.votes} className="text-xl font-semibold tabular-nums text-emerald-800" />
       </div>
       <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
         <motion.div
