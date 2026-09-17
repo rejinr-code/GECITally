@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/branding/geci-mark";
-import { Button } from "@/components/ui/button";
-import { signOut } from "@/lib/actions/auth";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 import type { UserRole } from "@/lib/types";
 
 const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
@@ -48,11 +47,7 @@ export function AppHeader({
             <p className="text-sm font-medium">{name}</p>
             <p className="text-xs capitalize text-muted-foreground">{role}</p>
           </div>
-          <form action={signOut}>
-            <Button variant="outline" size="sm" type="submit">
-              Sign out
-            </Button>
-          </form>
+          <SignOutButton />
         </div>
       </div>
     </header>

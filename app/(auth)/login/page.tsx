@@ -18,9 +18,6 @@ export default async function LoginPage({
           <CardHeader>
             <BrandLockup />
             <CardTitle className="pt-4">Counting duty login</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Use the account issued by the election admin.
-            </p>
           </CardHeader>
           <CardContent>
             <LoginForm next={next} />

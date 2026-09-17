@@ -19,10 +19,7 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
         </div>
         <div className="sm:max-w-md sm:text-right">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-300">
-            Project managed by
-          </p>
-          <p className="mt-1 text-base font-semibold tracking-tight">Prof. Rejin R</p>
+          <p className="text-base font-semibold tracking-tight">Prof. Rejin R</p>
           <p className="mt-0.5 text-sm text-emerald-100/85">Asst. Professor in IT</p>
           <p className="text-sm font-medium text-amber-200">Campus Lead Enabler, µLearn GECI</p>
         </div>

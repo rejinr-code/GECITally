@@ -28,12 +28,11 @@ function Name({
   );
 }
 
-function ManagedByCopy({ light }: { light?: boolean }) {
+function CreditCopy({ light }: { light?: boolean }) {
   const muted = light ? "text-emerald-100/80" : "text-emerald-700/75";
 
   return (
     <>
-      <span className={muted}>Project Managed by: </span>
       <Name light={light}>Prof. Rejin R</Name>
       <span className={muted}>, Asst. Professor in IT, </span>
       <Name light={light} gold>
@@ -76,7 +75,7 @@ export function MulearnCredit({
         <p className="min-w-0 text-[11px] leading-snug sm:text-xs">
           <Name light={light}>µLearn GECI</Name>
           <span className={cn("mx-1.5", light ? "text-amber-300/80" : "text-gold")}>·</span>
-          <ManagedByCopy light={light} />
+          <CreditCopy light={light} />
         </p>
       ) : (
         <div className="min-w-0 leading-tight">
@@ -92,7 +91,7 @@ export function MulearnCredit({
             µLearn GECI
           </p>
           <p className="mt-1 text-xs leading-snug">
-            <ManagedByCopy light={light} />
+            <CreditCopy light={light} />
           </p>
         </div>
       )}

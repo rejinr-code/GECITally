@@ -21,7 +21,6 @@ export function StaffManager({
   posts: Post[];
   people: StaffRow[];
 }) {
-  const { isSubmitting, run } = useAntiDuplicate();
   const staff = people.filter((person) => person.role === "staff");
   const supervisors = people.filter((person) => person.role === "supervisor");
   const admins = people.filter((person) => person.role === "admin");
@@ -33,62 +32,7 @@ export function StaffManager({
           <CardTitle>Create account</CardTitle>
         </CardHeader>
         <CardContent>
-          <form
-            className="grid gap-3 md:grid-cols-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = event.currentTarget;
-              void run(async () => {
-                const result = await createStaffAccount(new FormData(form));
-                if (result.error) toast.error(result.error);
-                else {
-                  toast.success("Account created.");
-                  form.reset();
-                }
-              });
-            }}
-          >
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full name</Label>
-              <Input id="full_name" name="full_name" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Temporary password</Label>
-              <Input id="password" name="password" type="password" minLength={8} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <select
-                id="role"
-                name="role"
-                defaultValue="staff"
-                className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
-              >
-                <option value="staff">Counting staff</option>
-                <option value="supervisor">Counting supervisor</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label>Assign posts (staff only)</Label>
-              <div className="flex flex-wrap gap-3">
-                {posts.map((post) => (
-                  <label key={post.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="post_ids" value={post.id} />
-                    {post.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <Spinner /> : null}
-              Create account
-            </Button>
-          </form>
+          <CreateAccountForm posts={posts} />
         </CardContent>
       </Card>
 
@@ -96,6 +40,77 @@ export function StaffManager({
       <RoleList title="Admins" people={admins} />
       <StaffList staff={staff} posts={posts} />
     </div>
+  );
+}
+
+function CreateAccountForm({ posts }: { posts: Post[] }) {
+  const { isSubmitting, run } = useAntiDuplicate();
+  const [role, setRole] = useState<UserRole>("staff");
+
+  return (
+    <form
+      className="grid gap-3 md:grid-cols-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        void run(async () => {
+          const result = await createStaffAccount(new FormData(form));
+          if (result.error) toast.error(result.error);
+          else {
+            toast.success("Account created.");
+            form.reset();
+            setRole("staff");
+          }
+        });
+      }}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="full_name">Full name</Label>
+        <Input id="full_name" name="full_name" required />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" name="email" type="email" required />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password">Temporary password</Label>
+        <Input id="password" name="password" type="password" minLength={8} required />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="role">Role</Label>
+        <select
+          id="role"
+          name="role"
+          value={role}
+          className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
+          onChange={(event) => setRole(event.target.value as UserRole)}
+        >
+          <option value="staff">Counting staff</option>
+          <option value="supervisor">Counting supervisor</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      {role === "staff" && (
+        <div className="space-y-2 md:col-span-2">
+          <Label>Assign posts</Label>
+          <p className="text-xs text-muted-foreground">
+            Counting staff can enter votes only for the posts you assign here.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {posts.map((post) => (
+              <label key={post.id} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="post_ids" value={post.id} />
+                {post.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+      <Button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? <Spinner /> : null}
+        Create account
+      </Button>
+    </form>
   );
 }
 
