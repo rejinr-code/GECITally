@@ -43,8 +43,8 @@ export default async function SupervisorPage() {
 
   const candidateIds = [...new Set((entries ?? []).map((entry) => entry.candidate_id))];
   const { data: candidates } = candidateIds.length
-    ? await supabase.from("candidates").select("id, name, panel_name").in("id", candidateIds)
-    : { data: [] as Pick<Candidate, "id" | "name" | "panel_name">[] };
+    ? await supabase.from("candidates").select("id, name, panel_name, branch, year").in("id", candidateIds)
+    : { data: [] as Pick<Candidate, "id" | "name" | "panel_name" | "branch" | "year">[] };
 
   const postMap = new Map((posts ?? []).map((post) => [post.id, post]));
   const staffMap = new Map((staffProfiles ?? []).map((person) => [person.id, person]));

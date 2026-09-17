@@ -42,6 +42,9 @@ export type Candidate = {
   photo_url: string | null;
   panel_id: string | null;
   panel_name: string | null;
+  branch: string | null;
+  year: number | null;
+  semester?: number | null;
   display_order: number;
 };
 
@@ -76,6 +79,9 @@ export type LiveCandidate = {
   name: string;
   photo_url: string | null;
   panel_name: string | null;
+  branch: string | null;
+  year: number | null;
+  semester?: number | null;
   votes: number;
 };
 
@@ -107,5 +113,7 @@ export type LiveResults = {
 export type PendingRound = CountRound & {
   post: Pick<Post, "id" | "name" | "seats">;
   staff: Pick<Profile, "id" | "full_name">;
-  entries: Array<CountEntry & { candidate: Pick<Candidate, "id" | "name" | "panel_name"> }>;
+  entries: Array<
+    CountEntry & { candidate: Pick<Candidate, "id" | "name" | "panel_name" | "branch" | "year" | "semester"> }
+  >;
 };

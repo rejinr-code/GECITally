@@ -7,8 +7,6 @@ import { submitCountRound } from "@/lib/actions/counting";
 import type { Candidate, CountRound } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
+import { candidateClassLabel } from "@/lib/candidate-class";
+import { cn, formatNumber } from "@/lib/utils";
 
 type Props = {
   postId: string;
@@ -31,6 +31,10 @@ type Props = {
   limitReached: boolean;
 };
 
+function emptyTally(candidates: Candidate[]) {
+  return Object.fromEntries(candidates.map((candidate) => [candidate.id, 0]));
+}
+
 export function CountForm({
   postId,
   postName,
@@ -41,40 +45,52 @@ export function CountForm({
   countingOpen,
   limitReached,
 }: Props) {
-  const [votes, setVotes] = useState<Record<string, string>>(() =>
-    Object.fromEntries(candidates.map((candidate) => [candidate.id, ""])),
-  );
-  const [open, setOpen] = useState(false);
+  const [votes, setVotes] = useState<Record<string, number>>(() => emptyTally(candidates));
+  const [history, setHistory] = useState<string[]>([]);
+  const [pendingCandidate, setPendingCandidate] = useState<Candidate | null>(null);
+  const [submitOpen, setSubmitOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isSubmitting, run } = useAntiDuplicate();
 
-  const parsed = useMemo(
-    () =>
-      candidates.map((candidate) => ({
-        candidate,
-        votes: votes[candidate.id] === "" ? NaN : Number(votes[candidate.id]),
-      })),
+  const rows = useMemo(
+    () => candidates.map((candidate) => ({ candidate, votes: votes[candidate.id] ?? 0 })),
     [candidates, votes],
   );
-
-  const allValid = parsed.every((row) => Number.isInteger(row.votes) && row.votes >= 0);
-  const total = parsed.reduce((sum, row) => sum + (Number.isFinite(row.votes) ? row.votes : 0), 0);
+  const total = rows.reduce((sum, row) => sum + row.votes, 0);
+  const lastId = history[history.length - 1] ?? null;
   const blocked = Boolean(pendingRound) || !countingOpen || (limitReached && !rejectedRound);
+  const canCount = !blocked && !isSubmitting;
 
-  function openConfirm() {
+  function requestAdd(candidate: Candidate) {
     setError(null);
-    if (!allValid) {
-      setError("Enter a whole number of 0 or more for every candidate.");
-      return;
-    }
-    setOpen(true);
+    setPendingCandidate(candidate);
+  }
+
+  function confirmAdd() {
+    if (!pendingCandidate) return;
+    const id = pendingCandidate.id;
+    setVotes((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
+    setHistory((current) => [...current, id]);
+    setPendingCandidate(null);
+  }
+
+  function undoLast() {
+    const id = history[history.length - 1];
+    if (!id) return;
+    setVotes((current) => ({ ...current, [id]: Math.max(0, (current[id] ?? 0) - 1) }));
+    setHistory((current) => current.slice(0, -1));
+  }
+
+  function openSubmit() {
+    setError(null);
+    setSubmitOpen(true);
   }
 
   async function confirmSubmit() {
     await run(async () => {
       const result = await submitCountRound(
         postId,
-        parsed.map((row) => ({
+        rows.map((row) => ({
           candidate_id: row.candidate.id,
           votes: row.votes,
         })),
@@ -85,8 +101,9 @@ export function CountForm({
         return;
       }
       toast.success(`Round ${roundNumber} submitted for verification.`);
-      setOpen(false);
-      setVotes(Object.fromEntries(candidates.map((candidate) => [candidate.id, ""])));
+      setSubmitOpen(false);
+      setVotes(emptyTally(candidates));
+      setHistory([]);
     });
   }
 
@@ -96,7 +113,7 @@ export function CountForm({
         <div>
           <CardTitle>Round {roundNumber}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter votes for every candidate, then confirm before saving.
+            Click Add vote, confirm the candidate, and the count goes up by one. Do not type numbers.
           </p>
         </div>
         {pendingRound && <Badge variant="warning">Awaiting supervisor verification</Badge>}
@@ -118,73 +135,139 @@ export function CountForm({
             This post has reached the finalisation limit. Ask the admin to raise it for remaining ballots.
           </p>
         )}
-        <div className="space-y-3">
-          {candidates.map((candidate) => (
-            <div key={candidate.id} className="grid gap-2 sm:grid-cols-[1fr_140px] sm:items-center">
-              <Label htmlFor={`votes-${candidate.id}`}>
-                <span className="font-medium">{candidate.name}</span>
-                {candidate.panel_name ? (
-                  <span className="ml-2 text-xs text-muted-foreground">{candidate.panel_name}</span>
-                ) : null}
-              </Label>
-              <Input
-                id={`votes-${candidate.id}`}
-                inputMode="numeric"
-                min={0}
-                step={1}
-                type="number"
-                value={votes[candidate.id]}
-                disabled={blocked || isSubmitting}
-                onChange={(event) =>
-                  setVotes((current) => ({ ...current, [candidate.id]: event.target.value }))
-                }
-              />
-            </div>
-          ))}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {rows.map(({ candidate, votes: count }) => {
+            const classLabel = candidateClassLabel(candidate.branch, candidate.year, candidate.semester);
+            const isLast = candidate.id === lastId;
+            return (
+              <article
+                key={candidate.id}
+                className={cn(
+                  "rounded-2xl border bg-white p-4 shadow-sm transition",
+                  isLast && "border-emerald-500 ring-2 ring-emerald-200",
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-semibold leading-tight">{candidate.name}</h3>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {classLabel ? (
+                        <Badge variant="outline" className="font-semibold tracking-wide">
+                          {classLabel}
+                        </Badge>
+                      ) : null}
+                      <span className="text-xs text-muted-foreground">
+                        {candidate.panel_name || "Independent"}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-3xl font-semibold tabular-nums text-emerald-800">{formatNumber(count)}</p>
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="mt-4 w-full"
+                  disabled={!canCount}
+                  onClick={() => requestAdd(candidate)}
+                >
+                  Add vote
+                </Button>
+              </article>
+            );
+          })}
         </div>
+
         {error && <p className="text-sm text-red-700">{error}</p>}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Round total: <span className="font-semibold text-foreground">{Number.isFinite(total) ? total : 0}</span>
-          </p>
-          <Button type="button" onClick={openConfirm} disabled={blocked || isSubmitting}>
-            Review and submit
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Ballots counted: <span className="font-semibold text-foreground">{formatNumber(total)}</span>
+            </p>
+            {lastId ? (
+              <p className="text-xs text-muted-foreground">
+                Last vote: {candidates.find((candidate) => candidate.id === lastId)?.name}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" disabled={!canCount || !history.length} onClick={undoLast}>
+              Undo last vote
+            </Button>
+            <Button type="button" onClick={openSubmit} disabled={blocked || isSubmitting || total === 0}>
+              Review and submit
+            </Button>
+          </div>
         </div>
       </CardContent>
 
-      <Dialog open={open} onOpenChange={(value) => !isSubmitting && setOpen(value)}>
+      <Dialog open={Boolean(pendingCandidate)} onOpenChange={(open) => !open && setPendingCandidate(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add 1 vote?</DialogTitle>
+            <DialogDescription>
+              {pendingCandidate
+                ? `This will raise ${pendingCandidate.name} from ${formatNumber(votes[pendingCandidate.id] ?? 0)} to ${formatNumber((votes[pendingCandidate.id] ?? 0) + 1)}.`
+                : "Confirm this vote."}
+            </DialogDescription>
+          </DialogHeader>
+          {pendingCandidate ? (
+            <div className="rounded-xl border bg-muted/40 px-4 py-3">
+              <p className="font-semibold">{pendingCandidate.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {[
+                  candidateClassLabel(pendingCandidate.branch, pendingCandidate.year, pendingCandidate.semester),
+                  pendingCandidate.panel_name || "Independent",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPendingCandidate(null)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={confirmAdd}>
+              Confirm vote
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={submitOpen} onOpenChange={(value) => !isSubmitting && setSubmitOpen(value)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Round {roundNumber} — Post: {postName}
+              Round {roundNumber} — {postName}
             </DialogTitle>
             <DialogDescription>
-              Confirm these counts. This round will wait for supervisor verification.
+              Confirm these sequential totals. This round will wait for supervisor verification.
             </DialogDescription>
           </DialogHeader>
           <ul className="space-y-2 text-sm">
-            {parsed.map((row) => (
-              <li key={row.candidate.id} className="flex justify-between gap-4">
-                <span>{row.candidate.name}</span>
-                <span className="font-semibold">{row.votes}</span>
-              </li>
-            ))}
+            {rows.map((row) => {
+              const classLabel = candidateClassLabel(row.candidate.branch, row.candidate.year, row.candidate.semester);
+              return (
+                <li key={row.candidate.id} className="flex justify-between gap-4">
+                  <span>
+                    {row.candidate.name}
+                    {classLabel ? <span className="ml-2 text-xs text-muted-foreground">{classLabel}</span> : null}
+                  </span>
+                  <span className="font-semibold tabular-nums">{formatNumber(row.votes)}</span>
+                </li>
+              );
+            })}
           </ul>
-          <p className="border-t pt-3 text-sm font-semibold">Total: {total}. Confirm?</p>
+          <p className="border-t pt-3 text-sm font-semibold">Total ballots: {formatNumber(total)}. Confirm?</p>
           {error && <p className="text-sm text-red-700">{error}</p>}
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSubmitting}
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => setSubmitOpen(false)}>
               Cancel
             </Button>
             <Button type="button" disabled={isSubmitting} onClick={() => void confirmSubmit()}>
               {isSubmitting ? <Spinner /> : null}
-              {isSubmitting ? "Saving..." : "Confirm"}
+              {isSubmitting ? "Saving..." : "Confirm round"}
             </Button>
           </DialogFooter>
         </DialogContent>

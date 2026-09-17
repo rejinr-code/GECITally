@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
 import { formatNumber, initials, postSerial } from "@/lib/utils";
+import { academicYear, candidateClassLabel, DEPARTMENTS, YEARS, yearLabel } from "@/lib/candidate-class";
 
 type PostWithCandidates = Post & { candidates: Candidate[] };
 
@@ -267,7 +268,7 @@ function PostCard({
           ))}
         </ul>
         <form
-          className="grid gap-3 md:grid-cols-[1.4fr_1fr_1.4fr_auto] md:items-end"
+          className="grid gap-3 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_0.85fr_0.75fr_1.2fr_auto] lg:items-end"
           onSubmit={(event) => {
             event.preventDefault();
             const form = event.currentTarget;
@@ -301,6 +302,8 @@ function PostCard({
               <p className="text-xs text-muted-foreground">Add panels above to assign one here.</p>
             )}
           </div>
+          <BranchField id={`branch-${post.id}`} />
+          <YearField id={`year-${post.id}`} />
           <div className="space-y-2">
             <Label htmlFor={`photo-${post.id}`}>Photo</Label>
             <PhotoField id={`photo-${post.id}`} />
@@ -331,7 +334,7 @@ function CandidateRow({
     return (
       <li className="rounded-lg border bg-white px-3 py-3">
         <form
-          className="grid gap-3 md:grid-cols-[1.4fr_1fr_1.4fr_auto] md:items-end"
+          className="grid gap-3 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_0.85fr_0.75fr_1.2fr_auto] lg:items-end"
           onSubmit={(event) => {
             event.preventDefault();
             const form = event.currentTarget;
@@ -368,6 +371,11 @@ function CandidateRow({
               ))}
             </select>
           </div>
+          <BranchField id={`cand-branch-${candidate.id}`} defaultValue={candidate.branch} />
+          <YearField
+            id={`cand-year-${candidate.id}`}
+            defaultValue={academicYear(candidate.year, candidate.semester)}
+          />
           <div className="space-y-2">
             <Label htmlFor={`cand-photo-${candidate.id}`}>Photo</Label>
             <PhotoField id={`cand-photo-${candidate.id}`} currentUrl={candidate.photo_url} />
@@ -403,7 +411,14 @@ function CandidateRow({
         )}
         <div className="min-w-0">
           <p className="font-medium">{candidate.name}</p>
-          <p className="text-xs text-muted-foreground">{candidate.panel_name || "Independent"}</p>
+          <p className="text-xs text-muted-foreground">
+            {[
+              candidateClassLabel(candidate.branch, candidate.year, candidate.semester),
+              candidate.panel_name || "Independent",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
         </div>
       </div>
       <div className="flex gap-1">
@@ -426,6 +441,48 @@ function CandidateRow({
         </Button>
       </div>
     </li>
+  );
+}
+
+function BranchField({ id, defaultValue }: { id: string; defaultValue?: string | null }) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>Branch</Label>
+      <select id={id} name="branch" defaultValue={defaultValue ?? ""} required className={selectClassName}>
+        <option value="" disabled>
+          Select
+        </option>
+        {DEPARTMENTS.map((department) => (
+          <option key={department.code} value={department.code}>
+            {department.code} — {department.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function YearField({ id, defaultValue }: { id: string; defaultValue?: number | null }) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>Year</Label>
+      <select
+        id={id}
+        name="year"
+        defaultValue={defaultValue ? String(defaultValue) : ""}
+        required
+        className={selectClassName}
+      >
+        <option value="" disabled>
+          Select
+        </option>
+        {YEARS.map((year) => (
+          <option key={year} value={year}>
+            {yearLabel(year)} Year
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 

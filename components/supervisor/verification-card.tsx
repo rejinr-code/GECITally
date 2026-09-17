@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { candidateClassLabel } from "@/lib/candidate-class";
 
 export function VerificationCard({ round }: { round: PendingRound }) {
   const [remarks, setRemarks] = useState("");
@@ -44,11 +45,11 @@ export function VerificationCard({ round }: { round: PendingRound }) {
             <li key={entry.id} className="flex justify-between gap-4">
               <span>
                 {entry.candidate.name}
-                {entry.candidate.panel_name ? (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {entry.candidate.panel_name}
-                  </span>
-                ) : null}
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {[candidateClassLabel(entry.candidate.branch, entry.candidate.year, entry.candidate.semester), entry.candidate.panel_name]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
               </span>
               <span className="font-semibold">{entry.votes}</span>
             </li>

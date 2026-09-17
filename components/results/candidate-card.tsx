@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { LiveCounter } from "@/components/results/live-counter";
 import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/utils";
+import { candidateClassLabel } from "@/lib/candidate-class";
 import type { LiveCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ export function CandidateCard({
   maxVotes: number;
   seats: number;
 }) {
+  const classLabel = candidateClassLabel(candidate.branch, candidate.year, candidate.semester);
   const width = maxVotes > 0 ? (candidate.votes / maxVotes) * 100 : 0;
 
   return (
@@ -48,12 +50,17 @@ export function CandidateCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold">{candidate.name}</h3>
+            {classLabel ? (
+              <Badge variant="outline" className="font-semibold tracking-wide">
+                {classLabel}
+              </Badge>
+            ) : null}
             {leading && <Badge>Leading · Top {seats}</Badge>}
             <span className="text-xs text-muted-foreground">#{rank}</span>
           </div>
-          {candidate.panel_name && (
-            <p className="text-xs text-muted-foreground">{candidate.panel_name}</p>
-          )}
+          {candidate.panel_name ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{candidate.panel_name}</p>
+          ) : null}
         </div>
         <LiveCounter value={candidate.votes} className="text-xl font-semibold tabular-nums text-emerald-800" />
       </div>

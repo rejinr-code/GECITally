@@ -18,6 +18,7 @@ export function AdminConsole({
   people,
   countingStarted,
   schemaNeedsUpdate,
+  schemaNeedsCandidateClass,
 }: {
   election: Election | null;
   electionId: string | null;
@@ -26,6 +27,7 @@ export function AdminConsole({
   people: StaffRow[];
   countingStarted: boolean;
   schemaNeedsUpdate: boolean;
+  schemaNeedsCandidateClass: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -33,6 +35,12 @@ export function AdminConsole({
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           Run <code className="font-medium">supabase/migrations/0002_panels_and_post_votes.sql</code> in
           the Supabase SQL editor to enable panels and per-post votes polled.
+        </p>
+      )}
+      {schemaNeedsCandidateClass && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Run <code className="font-medium">supabase/migrations/0004_candidate_year.sql</code> in
+          the Supabase SQL editor to save each candidate&apos;s branch and year.
         </p>
       )}
       <Tabs defaultValue="election">

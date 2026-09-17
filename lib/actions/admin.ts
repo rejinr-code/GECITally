@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ElectionState, UserRole } from "@/lib/types";
 import { deleteCandidatePhoto, uploadCandidatePhoto } from "@/lib/storage/candidate-photos";
+import { isDepartmentCode, YEARS } from "@/lib/candidate-class";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -141,11 +142,20 @@ export async function saveCandidate(formData: FormData) {
       panel_name = panel.name;
     }
 
+    const branch = String(formData.get("branch") ?? "").trim().toUpperCase();
+    const year = Number(formData.get("year") ?? "");
+    if (!isDepartmentCode(branch)) return { error: "Select a branch." };
+    if (!YEARS.includes(year as (typeof YEARS)[number])) {
+      return { error: "Select a year." };
+    }
+
     const payload = {
       post_id: String(formData.get("post_id") ?? ""),
       name: String(formData.get("name") ?? "").trim(),
       panel_id,
       panel_name,
+      branch,
+      year,
       display_order: Number(formData.get("display_order") ?? 0),
     };
     if (!payload.name) return { error: "Candidate name is required." };
@@ -179,10 +189,24 @@ export async function saveCandidate(formData: FormData) {
 
     if (id) {
       const { error } = await supabase.from("candidates").update(row).eq("id", id);
-      if (error) return { error: error.message };
+      if (error) {
+        if (error.message.includes("branch") || error.code === "PGRST204") {
+          return {
+            error: "Run supabase/migrations/0004_candidate_year.sql in the Supabase SQL editor.",
+          };
+        }
+        return { error: error.message };
+      }
     } else {
       const { error } = await supabase.from("candidates").insert(row);
-      if (error) return { error: error.message };
+      if (error) {
+        if (error.message.includes("branch") || error.code === "PGRST204") {
+          return {
+            error: "Run supabase/migrations/0004_candidate_year.sql in the Supabase SQL editor.",
+          };
+        }
+        return { error: error.message };
+      }
     }
     revalidatePath("/admin");
     revalidatePath("/results");

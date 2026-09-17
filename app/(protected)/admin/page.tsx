@@ -33,7 +33,10 @@ export default async function AdminPage() {
     ? await admin.from("candidates").select("*").in("post_id", postIds).order("display_order")
     : { data: [] as Candidate[] };
 
+  const { error: candidateClassError } = await admin.from("candidates").select("branch, year").limit(1);
+
   const schemaNeedsUpdate = Boolean(panelsResult.error);
+  const schemaNeedsCandidateClass = Boolean(candidateClassError);
   const panels = schemaNeedsUpdate ? [] : ((panelsResult.data ?? []) as Panel[]);
 
   const postsWithCandidates = posts.map((post) => ({
@@ -65,6 +68,7 @@ export default async function AdminPage() {
         people={peopleWithAssignments}
         countingStarted={election?.state !== "setup"}
         schemaNeedsUpdate={schemaNeedsUpdate}
+        schemaNeedsCandidateClass={schemaNeedsCandidateClass}
       />
     </div>
   );
