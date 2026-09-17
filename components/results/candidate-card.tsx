@@ -28,7 +28,7 @@ export function CandidateCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "rounded-xl border bg-white/90 p-4 shadow-sm",
+        "rounded-xl border bg-white/90 p-3 shadow-sm",
         leading && "border-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]",
       )}
     >

@@ -12,6 +12,10 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "GECI Tally",
   description: "Student election counting system for Government Engineering College Idukki",
+  icons: {
+    icon: "/geci-logo.png",
+    apple: "/geci-logo.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

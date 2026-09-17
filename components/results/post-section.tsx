@@ -39,15 +39,15 @@ export function PostSection({
     <motion.section
       layout
       key={`${post.id}-${flashKey}`}
-      className="rounded-2xl border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur md:p-7"
+      className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur md:p-5"
       initial={false}
       animate={{ boxShadow: flashKey ? "0 0 0 4px rgba(16,185,129,0.18)" : "0 1px 2px rgba(0,0,0,0.04)" }}
       transition={{ duration: 0.8 }}
     >
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-semibold tracking-tight">{post.name}</h2>
+            <h2 className="text-xl font-semibold tracking-tight md:text-2xl">{post.name}</h2>
             <Badge variant="secondary">{post.seats} seat{post.seats > 1 ? "s" : ""}</Badge>
             {post.is_finalised && <Badge>Finalised</Badge>}
           </div>
@@ -62,10 +62,10 @@ export function PostSection({
         </div>
       </div>
 
-      <Progress value={percent(post.verified_rounds, countLimit)} className="mb-6" />
+      <Progress value={percent(post.verified_rounds, countLimit)} className="mb-4" />
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-3">
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_min(38%,11rem)] gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:grid-rows-1 xl:gap-4">
+        <div className="min-h-0 space-y-2 overflow-y-auto pr-1">
           <AnimatePresence>
             {ranked.map((candidate, index) => (
               <CandidateCard
@@ -79,7 +79,7 @@ export function PostSection({
             ))}
           </AnimatePresence>
         </div>
-        <div className="h-72 rounded-xl bg-slate-50 p-2">
+        <div className="min-h-0 rounded-xl bg-slate-50 p-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#d7e3db" />
@@ -92,7 +92,7 @@ export function PostSection({
         </div>
       </div>
 
-      <p className="mt-4 text-sm text-muted-foreground">
+      <p className="mt-3 shrink-0 text-sm text-muted-foreground">
         {formatNumber(post.total_verified_votes)} verified votes
         {votesPolled > 0
           ? ` · ${percent(post.total_verified_votes, votesPolled)}% of ${formatNumber(votesPolled)} polled`

@@ -84,6 +84,16 @@ body {
   font-size: 1.15rem;
 }
 
-.big-screen h1 {
+.big-screen h1,
+.big-screen h2 {
   letter-spacing: -0.03em;
+}
+
+@keyframes resultsRotate {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
 }
