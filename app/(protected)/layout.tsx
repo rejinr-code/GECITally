@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/layout/app-header";
-import { MulearnCredit } from "@/components/branding/mulearn-credit";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import type { UserRole } from "@/lib/types";
@@ -24,14 +24,10 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   if (!profile) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <AppHeader role={profile.role as UserRole} name={profile.full_name} />
-      <div className="mx-auto max-w-6xl px-4 py-8">{children}</div>
-      <footer className="border-t border-emerald-100/80 bg-white/70">
-        <div className="mx-auto flex max-w-6xl items-center px-4 py-4">
-          <MulearnCredit />
-        </div>
-      </footer>
+      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</div>
+      <SiteFooter />
     </div>
   );
 }

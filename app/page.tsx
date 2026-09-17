@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/branding/geci-mark";
-import { MulearnCredit } from "@/components/branding/mulearn-credit";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#d1fae5,_#f8fafc_45%)]">
+    <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_#d1fae5,_#f8fafc_45%)]">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6">
         <BrandLockup />
         <div className="flex gap-2">
@@ -17,7 +17,7 @@ export default function HomePage() {
           </Button>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-16 md:py-24">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-16 md:py-24">
         <p className="text-sm font-medium uppercase tracking-[0.25em] text-emerald-700">
           Government Engineering College Idukki
         </p>
@@ -49,11 +49,7 @@ export default function HomePage() {
           ))}
         </div>
       </main>
-      <footer className="border-t border-emerald-100/80 bg-white/55">
-        <div className="mx-auto flex max-w-6xl items-center px-4 py-5">
-          <MulearnCredit />
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
