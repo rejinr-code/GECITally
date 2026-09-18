@@ -10,13 +10,69 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const STATES: ElectionState[] = ["setup", "counting", "finalised"];
+
+const STATE_COPY: Record<ElectionState, { title: string; detail: string }> = {
+  setup: {
+    title: "Switch to Setup?",
+    detail: "Counting staff will not be able to submit rounds. Posts and candidates can still be edited.",
+  },
+  counting: {
+    title: "Switch to Counting?",
+    detail: "Staff can enter votes and supervisors can verify rounds. Configuration edits stay limited.",
+  },
+  finalised: {
+    title: "Switch to Finalised?",
+    detail: "Counting closes. Verified totals stay on the live results board.",
+  },
+};
 
 export function ElectionSettings({ election }: { election: Election | null }) {
   const { isSubmitting, run } = useAntiDuplicate();
   const { isSubmitting: stateBusy, run: runState } = useAntiDuplicate();
   const [resetting, setResetting] = useState(false);
+  const [pendingState, setPendingState] = useState<ElectionState | null>(null);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  function openStateDialog(state: ElectionState) {
+    if (!election || election.state === state) return;
+    setPassword("");
+    setPasswordError(null);
+    setPendingState(state);
+  }
+
+  function closeStateDialog() {
+    if (stateBusy) return;
+    setPendingState(null);
+    setPassword("");
+    setPasswordError(null);
+  }
+
+  function confirmState() {
+    if (!election || !pendingState) return;
+    void runState(async () => {
+      const result = await setElectionState(election.id, pendingState, password);
+      if (result.error) {
+        setPasswordError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Election is now ${pendingState}.`);
+      setPendingState(null);
+      setPassword("");
+      setPasswordError(null);
+    });
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -97,16 +153,9 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 variant={election?.state === state ? "default" : "outline"}
                 disabled={!election || stateBusy}
                 className="capitalize"
-                onClick={() => {
-                  if (!election) return;
-                  void runState(async () => {
-                    const result = await setElectionState(election.id, state);
-                    if (result.error) toast.error(result.error);
-                    else toast.success(`Election is now ${state}.`);
-                  });
-                }}
+                onClick={() => openStateDialog(state)}
               >
-                {stateBusy ? <Spinner /> : null}
+                {stateBusy && pendingState === state ? <Spinner /> : null}
                 {state}
               </Button>
             ))}
@@ -138,6 +187,49 @@ export function ElectionSettings({ election }: { election: Election | null }) {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(pendingState)} onOpenChange={(open) => !open && closeStateDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{pendingState ? STATE_COPY[pendingState].title : "Confirm state change"}</DialogTitle>
+            <DialogDescription>
+              {pendingState ? STATE_COPY[pendingState].detail : ""} Enter your admin password to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmState();
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="state-password">Admin password</Label>
+              <Input
+                id="state-password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setPasswordError(null);
+                }}
+                required
+              />
+            </div>
+            {passwordError ? <p className="text-sm text-red-700">{passwordError}</p> : null}
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={stateBusy} onClick={closeStateDialog}>
+                Cancel
+              </Button>
+              <Button type="submit" className="capitalize" disabled={stateBusy || !password.trim()}>
+                {stateBusy ? <Spinner /> : null}
+                Confirm {pendingState}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
