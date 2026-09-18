@@ -28,21 +28,22 @@ async function requireAdmin() {
 async function confirmAdminPassword(password: string) {
   const { supabase, user } = await requireAdmin();
   if (!user.email) return { error: "This admin account has no email to verify." };
-  if (!password.trim()) return { error: "Enter your admin password to confirm." };
+    const passwordValue = typeof password === "string" ? password.trim() : "";
+    if (!passwordValue) return { error: "Enter your admin password to confirm." };
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return { error: "Supabase is not configured." };
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) return { error: "Supabase is not configured." };
 
-  const check = createPasswordClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { error } = await check.auth.signInWithPassword({
-    email: user.email,
-    password,
-  });
-  if (error) return { error: "Incorrect password." };
-  return { supabase };
+    const check = createPasswordClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error } = await check.auth.signInWithPassword({
+      email: user.email,
+      password: passwordValue,
+    });
+    if (error) return { error: "Incorrect password." };
+    return { supabase };
 }
 
 export async function upsertElection(formData: FormData) {
@@ -87,8 +88,11 @@ export async function setElectionState(electionId: string, state: ElectionState,
     if (!["setup", "counting", "finalised"].includes(state)) {
       return { error: "Invalid election state." };
     }
+    if (typeof password !== "string" || !password.trim()) {
+      return { error: "Enter your admin password to confirm." };
+    }
     const confirmed = await confirmAdminPassword(password);
-    if ("error" in confirmed && confirmed.error) return { error: confirmed.error };
+    if ("error" in confirmed) return { error: confirmed.error };
 
     const { error } = await confirmed.supabase.from("elections").update({ state }).eq("id", electionId);
     if (error) return { error: error.message };

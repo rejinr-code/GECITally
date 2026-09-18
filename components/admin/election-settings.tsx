@@ -10,14 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 const STATES: ElectionState[] = ["setup", "counting", "finalised"];
 
@@ -153,7 +145,11 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 variant={election?.state === state ? "default" : "outline"}
                 disabled={!election || stateBusy}
                 className="capitalize"
-                onClick={() => openStateDialog(state)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  window.setTimeout(() => openStateDialog(state), 0);
+                }}
               >
                 {stateBusy && pendingState === state ? <Spinner /> : null}
                 {state}
@@ -188,48 +184,57 @@ export function ElectionSettings({ election }: { election: Election | null }) {
         </CardContent>
       </Card>
 
-      <Dialog open={Boolean(pendingState)} onOpenChange={(open) => !open && closeStateDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{pendingState ? STATE_COPY[pendingState].title : "Confirm state change"}</DialogTitle>
-            <DialogDescription>
-              {pendingState ? STATE_COPY[pendingState].detail : ""} Enter your admin password to confirm.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              confirmState();
-            }}
+      {pendingState ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="state-confirm-title"
+            className="w-full max-w-md rounded-xl border bg-white p-6 shadow-2xl"
           >
-            <div className="space-y-2">
-              <Label htmlFor="state-password">Admin password</Label>
-              <Input
-                id="state-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => {
-                  setPassword(event.target.value);
-                  setPasswordError(null);
-                }}
-                required
-              />
-            </div>
-            {passwordError ? <p className="text-sm text-red-700">{passwordError}</p> : null}
-            <DialogFooter>
-              <Button type="button" variant="outline" disabled={stateBusy} onClick={closeStateDialog}>
-                Cancel
-              </Button>
-              <Button type="submit" className="capitalize" disabled={stateBusy || !password.trim()}>
-                {stateBusy ? <Spinner /> : null}
-                Confirm {pendingState}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            <h2 id="state-confirm-title" className="text-lg font-semibold">
+              {STATE_COPY[pendingState].title}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {STATE_COPY[pendingState].detail} Enter your admin password, then confirm.
+            </p>
+            <form
+              className="mt-4 space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                confirmState();
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="state-password">Admin password</Label>
+                <Input
+                  id="state-password"
+                  type="password"
+                  autoComplete="off"
+                  value={password}
+                  autoFocus
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setPasswordError(null);
+                  }}
+                  required
+                />
+              </div>
+              {passwordError ? <p className="text-sm text-red-700">{passwordError}</p> : null}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" disabled={stateBusy} onClick={closeStateDialog}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="capitalize" disabled={stateBusy || !password.trim()}>
+                  {stateBusy ? <Spinner /> : null}
+                  Confirm {pendingState}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
