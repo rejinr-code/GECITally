@@ -106,7 +106,8 @@ export function ElectionSettings({ election }: { election: Election | null }) {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Election metadata</CardTitle>
@@ -222,8 +223,9 @@ export function ElectionSettings({ election }: { election: Election | null }) {
           </div>
         </CardContent>
       </Card>
+      </div>
 
-      <Card className="lg:col-span-2">
+      <Card>
         <CardHeader>
           <CardTitle>Live results display</CardTitle>
         </CardHeader>
@@ -340,6 +342,8 @@ export function ElectionSettings({ election }: { election: Election | null }) {
             </form>
           </div>
         </div>
+      ) : null}
+
       {displayOpen ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
           <div
