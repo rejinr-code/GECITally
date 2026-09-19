@@ -68,6 +68,7 @@ export type CountRound = {
   verified_at: string | null;
   remarks: string | null;
   is_finalised: boolean;
+  invalid_votes: number;
 };
 
 export type CountEntry = {
@@ -98,6 +99,7 @@ export type LivePost = {
   pending_rounds: number;
   is_finalised: boolean;
   total_verified_votes: number;
+  invalid_votes: number;
   candidates: LiveCandidate[];
 };
 

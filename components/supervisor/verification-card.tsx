@@ -15,7 +15,8 @@ import { candidateClassLabel } from "@/lib/candidate-class";
 export function VerificationCard({ round }: { round: PendingRound }) {
   const [remarks, setRemarks] = useState("");
   const { isSubmitting, run } = useAntiDuplicate();
-  const total = round.entries.reduce((sum, entry) => sum + entry.votes, 0);
+  const invalid = round.invalid_votes ?? 0;
+  const total = round.entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
 
   async function act(action: "verify" | "reject") {
     const result = await run(async () => reviewRound(round.id, action, remarks));
@@ -54,6 +55,10 @@ export function VerificationCard({ round }: { round: PendingRound }) {
               <span className="font-semibold">{entry.votes}</span>
             </li>
           ))}
+          <li className="flex justify-between gap-4">
+            <span>Invalid</span>
+            <span className="font-semibold">{invalid}</span>
+          </li>
         </ul>
         <p className="border-t pt-3 text-sm font-semibold">Round total: {total}</p>
         <Textarea

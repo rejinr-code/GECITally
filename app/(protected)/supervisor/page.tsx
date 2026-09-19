@@ -27,7 +27,11 @@ export default async function SupervisorPage() {
 
   const postIds = (posts ?? []).map((post) => post.id);
   const { data: verified } = postIds.length
-    ? await supabase.from("count_rounds").select("id, post_id, status").in("post_id", postIds).eq("status", "verified")
+    ? await supabase
+        .from("count_rounds")
+        .select("id, post_id, status, invalid_votes")
+        .in("post_id", postIds)
+        .eq("status", "verified")
     : { data: [] };
 
   const verifiedRoundIds = (verified ?? []).map((round) => round.id);
@@ -94,12 +98,14 @@ export default async function SupervisorPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {(posts ?? []).map((post) => {
-          const postRoundIds = new Set(
-            (verified ?? []).filter((round) => round.post_id === post.id).map((round) => round.id),
-          );
-          const counted = (verifiedEntries ?? [])
-            .filter((entry) => postRoundIds.has(entry.round_id))
-            .reduce((sum, entry) => sum + entry.votes, 0);
+          const counted = (verified ?? [])
+            .filter((round) => round.post_id === post.id)
+            .reduce((sum, round) => {
+              const candidateVotes = (verifiedEntries ?? [])
+                .filter((entry) => entry.round_id === round.id)
+                .reduce((inner, entry) => inner + entry.votes, 0);
+              return sum + candidateVotes + (round.invalid_votes ?? 0);
+            }, 0);
           const polled = post.votes_polled ?? 0;
           return (
             <Card key={post.id}>

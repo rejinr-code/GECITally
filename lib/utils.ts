@@ -66,6 +66,13 @@ export function parsePositiveInt(value: unknown, fallback = 0) {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
+export function liveCountedBallots(post: {
+  total_verified_votes: number;
+  invalid_votes?: number | null;
+}) {
+  return (post.total_verified_votes ?? 0) + (post.invalid_votes ?? 0);
+}
+
 export function liveDisplaySettings(election: {
   results_rotate_seconds?: number | null;
   results_require_verification?: boolean | null;

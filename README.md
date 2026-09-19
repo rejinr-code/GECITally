@@ -46,7 +46,8 @@ In the Supabase SQL editor, run in order:
 8. `supabase/migrations/0008_counting_rpc_only.sql`
 9. `supabase/migrations/0009_results_skip_counting_approval.sql`
 10. `supabase/migrations/0010_results_tick.sql`
-11. `supabase/seed.sql` (optional starter posts)
+11. `supabase/migrations/0011_invalid_votes.sql`
+12. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -77,13 +78,14 @@ Open [http://localhost:3000](http://localhost:3000).
 | Path | Role | Purpose |
 |---|---|---|
 | `/admin` | admin | Panels, posts, candidates, staff, count limit, live display, election state |
-| `/staff` | staff | Enter per-candidate counts for assigned posts |
+| `/staff` | staff | Enter per-candidate and invalid counts for assigned posts |
 | `/supervisor` | supervisor | Verify or reject submitted rounds |
 | `/results` | public | Live animated results (no login) |
 
 ## Counting rules
 
-- A round is all candidate counts for one post, saved in a single Postgres transaction.
+- A round is all candidate counts for one post, plus invalid / spoilt ballots, saved in a single Postgres transaction.
+- Invalid votes count toward the round size and votes polled. They do not add to a candidate.
 - Duplicate submits are blocked in the UI (disabled button + ref guard) and in the database (`unique (post_id, staff_id, round_number)`).
 - Count rows are written only by `submit_count_round` / `review_count_round`. Staff cannot insert or self-verify rounds through the API.
 - Verified rounds become part of the live tally. Admin can instead show pending rounds on the public board immediately after staff submit.

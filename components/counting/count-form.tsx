@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { candidateClassLabel } from "@/lib/candidate-class";
 import { cn, formatNumber } from "@/lib/utils";
 
+const INVALID_KEY = "__invalid__";
+
 type Props = {
   postId: string;
   postName: string;
@@ -35,7 +37,10 @@ type Props = {
 };
 
 function emptyTally(candidates: Candidate[]) {
-  return Object.fromEntries(candidates.map((candidate) => [candidate.id, 0]));
+  return {
+    ...Object.fromEntries(candidates.map((candidate) => [candidate.id, 0])),
+    [INVALID_KEY]: 0,
+  };
 }
 
 export function CountForm({
@@ -69,7 +74,8 @@ export function CountForm({
     () => candidates.map((candidate) => ({ candidate, votes: votes[candidate.id] ?? 0 })),
     [candidates, votes],
   );
-  const total = rows.reduce((sum, row) => sum + row.votes, 0);
+  const invalidCount = votes[INVALID_KEY] ?? 0;
+  const total = rows.reduce((sum, row) => sum + row.votes, 0) + invalidCount;
   const waitingOnSupervisor = requireSupervisor && Boolean(pendingRound);
   const blocked = waitingOnSupervisor || !countingOpen || postComplete;
   const canCount = !blocked && !isSubmitting && total < roundCap;
@@ -122,6 +128,7 @@ export function CountForm({
           candidate_id: row.candidate.id,
           votes: row.votes,
         })),
+        invalidCount,
       );
       if (result.error) {
         setError(result.error);
@@ -141,15 +148,19 @@ export function CountForm({
     });
   }
 
+  const lastVoteLabel =
+    lastId === INVALID_KEY ? "Invalid" : candidates.find((candidate) => candidate.id === lastId)?.name;
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle>Round {roundNumber}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add vote on a candidate, then Confirm on the same card. Count goes up by one. Do not type numbers.
-            Each round is {formatNumber(roundSize)} ballots
-            {isLastRound ? `; this last round has ${formatNumber(roundCap)} remaining.` : "."}
+            Add vote on a candidate or Invalid, then Confirm on the same card. Count goes up by one. Do not type
+            numbers. Each round is {formatNumber(roundSize)} ballots
+            {isLastRound ? `; this last round has ${formatNumber(roundCap)} remaining.` : "."} Invalid ballots
+            count toward the round, not toward a candidate.
           </p>
         </div>
         {waitingOnSupervisor && <Badge variant="warning">Awaiting supervisor verification</Badge>}
@@ -180,74 +191,34 @@ export function CountForm({
         <div className="flex gap-3 overflow-x-auto pb-1">
           {rows.map(({ candidate, votes: count }) => {
             const classLabel = candidateClassLabel(candidate.branch, candidate.year, candidate.semester);
-            const isLast = candidate.id === lastId;
-            const isPending = pendingCandidateId === candidate.id;
             return (
-              <article
+              <BallotCard
                 key={candidate.id}
-                className={cn(
-                  "min-w-[16.5rem] flex-1 rounded-2xl border bg-white p-4 shadow-sm transition",
-                  isPending && "border-amber-400 ring-2 ring-amber-200",
-                  isLast && !isPending && "border-emerald-500 ring-2 ring-emerald-200",
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-semibold leading-tight">{candidate.name}</h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      {classLabel ? (
-                        <Badge variant="outline" className="font-semibold tracking-wide">
-                          {classLabel}
-                        </Badge>
-                      ) : null}
-                      <span className="text-xs text-muted-foreground">
-                        {candidate.panel_name || "Independent"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-3xl font-semibold tabular-nums text-emerald-800">
-                      {formatNumber(count)}
-                    </p>
-                    {isPending ? (
-                      <p className="text-xs font-medium text-amber-700">
-                        → {formatNumber(count + 1)}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    size="lg"
-                    variant={isPending ? "outline" : "default"}
-                    disabled={!canCount}
-                    onClick={() => requestAdd(candidate.id)}
-                  >
-                    Add vote
-                  </Button>
-                  <Button
-                    type="button"
-                    size="lg"
-                    variant={isPending ? "default" : "secondary"}
-                    disabled={!canCount || !isPending}
-                    onClick={() => confirmAdd(candidate.id)}
-                  >
-                    Confirm
-                  </Button>
-                </div>
-                {isPending ? (
-                  <button
-                    type="button"
-                    className="mt-2 text-xs text-muted-foreground underline-offset-2 hover:underline"
-                    onClick={cancelPending}
-                  >
-                    Cancel this vote
-                  </button>
-                ) : null}
-              </article>
+                title={candidate.name}
+                subtitle={candidate.panel_name || "Independent"}
+                badge={classLabel}
+                count={count}
+                isLast={candidate.id === lastId}
+                isPending={pendingCandidateId === candidate.id}
+                canCount={canCount}
+                onAdd={() => requestAdd(candidate.id)}
+                onConfirm={() => confirmAdd(candidate.id)}
+                onCancel={cancelPending}
+              />
             );
           })}
+          <BallotCard
+            title="Invalid"
+            subtitle="Spoilt / rejected ballot"
+            count={invalidCount}
+            isLast={lastId === INVALID_KEY}
+            isPending={pendingCandidateId === INVALID_KEY}
+            canCount={canCount}
+            tone="invalid"
+            onAdd={() => requestAdd(INVALID_KEY)}
+            onConfirm={() => confirmAdd(INVALID_KEY)}
+            onCancel={cancelPending}
+          />
         </div>
 
         {error && <p className="text-sm text-red-700">{error}</p>}
@@ -259,12 +230,11 @@ export function CountForm({
                 {formatNumber(total)}
                 {roundCap > 0 ? ` / ${formatNumber(roundCap)}` : ""}
               </span>
+              {invalidCount > 0 ? (
+                <span className="ml-2 text-xs">({formatNumber(invalidCount)} invalid)</span>
+              ) : null}
             </p>
-            {lastId ? (
-              <p className="text-xs text-muted-foreground">
-                Last vote: {candidates.find((candidate) => candidate.id === lastId)?.name}
-              </p>
-            ) : null}
+            {lastId ? <p className="text-xs text-muted-foreground">Last vote: {lastVoteLabel}</p> : null}
           </div>
           <Button type="button" onClick={openSubmit} disabled={!canSubmit}>
             Review and submit
@@ -321,6 +291,10 @@ export function CountForm({
                 </li>
               );
             })}
+            <li className="flex justify-between gap-4">
+              <span>Invalid</span>
+              <span className="font-semibold tabular-nums">{formatNumber(invalidCount)}</span>
+            </li>
           </ul>
           <p className="border-t pt-3 text-sm font-semibold">Total ballots: {formatNumber(total)}. Confirm?</p>
           {error && <p className="text-sm text-red-700">{error}</p>}
@@ -336,5 +310,92 @@ export function CountForm({
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+function BallotCard({
+  title,
+  subtitle,
+  badge,
+  count,
+  isLast,
+  isPending,
+  canCount,
+  tone,
+  onAdd,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  subtitle: string;
+  badge?: string | null;
+  count: number;
+  isLast: boolean;
+  isPending: boolean;
+  canCount: boolean;
+  tone?: "invalid";
+  onAdd: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <article
+      className={cn(
+        "min-w-[16.5rem] flex-1 rounded-2xl border bg-white p-4 shadow-sm transition",
+        tone === "invalid" && "border-dashed bg-slate-50",
+        isPending && "border-amber-400 ring-2 ring-amber-200",
+        isLast && !isPending && "border-emerald-500 ring-2 ring-emerald-200",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-lg font-semibold leading-tight">{title}</h3>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {badge ? (
+              <Badge variant="outline" className="font-semibold tracking-wide">
+                {badge}
+              </Badge>
+            ) : null}
+            <span className="text-xs text-muted-foreground">{subtitle}</span>
+          </div>
+        </div>
+        <div className="text-right">
+          <p
+            className={cn(
+              "text-3xl font-semibold tabular-nums",
+              tone === "invalid" ? "text-slate-700" : "text-emerald-800",
+            )}
+          >
+            {formatNumber(count)}
+          </p>
+          {isPending ? (
+            <p className="text-xs font-medium text-amber-700">→ {formatNumber(count + 1)}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <Button type="button" size="lg" variant={isPending ? "outline" : "default"} disabled={!canCount} onClick={onAdd}>
+          Add vote
+        </Button>
+        <Button
+          type="button"
+          size="lg"
+          variant={isPending ? "default" : "secondary"}
+          disabled={!canCount || !isPending}
+          onClick={onConfirm}
+        >
+          Confirm
+        </Button>
+      </div>
+      {isPending ? (
+        <button
+          type="button"
+          className="mt-2 text-xs text-muted-foreground underline-offset-2 hover:underline"
+          onClick={onCancel}
+        >
+          Cancel this vote
+        </button>
+      ) : null}
+    </article>
   );
 }

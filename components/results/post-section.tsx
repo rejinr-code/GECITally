@@ -6,7 +6,7 @@ import { CandidateCard } from "@/components/results/candidate-card";
 import { LiveCounter } from "@/components/results/live-counter";
 import { WinnerBurst } from "@/components/results/winner-burst";
 import type { ElectionState, LivePost } from "@/lib/types";
-import { formatNumber, percent } from "@/lib/utils";
+import { formatNumber, liveCountedBallots, percent } from "@/lib/utils";
 
 const SLICE_COLORS = [
   "#059669",
@@ -34,17 +34,24 @@ export function PostSection({
 }) {
   const ranked = [...post.candidates].sort((a, b) => b.votes - a.votes);
   const maxVotes = ranked[0]?.votes ?? 0;
-  const voteTotal = ranked.reduce((sum, candidate) => sum + candidate.votes, 0);
+  const invalidVotes = post.invalid_votes ?? 0;
+  const candidateVotes = ranked.reduce((sum, candidate) => sum + candidate.votes, 0);
+  const countedBallots = liveCountedBallots(post);
   const votesPolled = post.votes_polled ?? 0;
   const declared = post.is_finalised || electionState === "finalised";
   const winners = declared ? ranked.slice(0, post.seats).filter((candidate) => candidate.votes > 0) : [];
-  const chartData = ranked.map((candidate, index) => ({
-    name: candidate.name,
-    shortName: candidate.name.split(" ")[0] ?? candidate.name,
-    votes: candidate.votes,
-    fill: SLICE_COLORS[index % SLICE_COLORS.length],
-  }));
-  const pieData = voteTotal > 0 ? chartData : chartData.map((row) => ({ ...row, votes: 1 }));
+  const chartData = [
+    ...ranked.map((candidate, index) => ({
+      name: candidate.name,
+      shortName: candidate.name.split(" ")[0] ?? candidate.name,
+      votes: candidate.votes,
+      fill: SLICE_COLORS[index % SLICE_COLORS.length],
+    })),
+    ...(invalidVotes > 0
+      ? [{ name: "Invalid", shortName: "Invalid", votes: invalidVotes, fill: "#94a3b8" }]
+      : []),
+  ];
+  const pieData = countedBallots > 0 ? chartData : chartData.map((row) => ({ ...row, votes: 1 }));
   const twoCol = ranked.length > 2;
 
   return (
@@ -79,8 +86,9 @@ export function PostSection({
             )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {formatNumber(post.total_verified_votes)}
+            {formatNumber(countedBallots)}
             {votesPolled > 0 ? ` / ${formatNumber(votesPolled)} polled` : " counted"}
+            {invalidVotes > 0 ? ` · ${formatNumber(invalidVotes)} invalid` : ""}
             {post.pending_rounds ? ` · ${post.pending_rounds} pending rounds` : ""}
           </p>
         </div>
@@ -95,7 +103,7 @@ export function PostSection({
       <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-emerald-100">
         <div
           className="h-full rounded-full bg-emerald-500"
-          style={{ width: `${votesPolled > 0 ? percent(post.total_verified_votes, votesPolled) : 0}%` }}
+          style={{ width: `${votesPolled > 0 ? percent(countedBallots, votesPolled) : 0}%` }}
         />
       </div>
 
@@ -117,7 +125,7 @@ export function PostSection({
                 elected={winners.some((winner) => winner.id === candidate.id)}
                 maxVotes={maxVotes}
                 seats={post.seats}
-                share={percent(candidate.votes, voteTotal)}
+                share={percent(candidate.votes, candidateVotes)}
               />
             ))}
           </AnimatePresence>
@@ -137,14 +145,14 @@ export function PostSection({
                   cy="50%"
                   innerRadius="42%"
                   outerRadius="72%"
-                  paddingAngle={voteTotal > 0 ? 2 : 0}
+                  paddingAngle={countedBallots > 0 ? 2 : 0}
                   isAnimationActive
                   animationDuration={700}
                 >
                   {pieData.map((slice) => (
                     <Cell
                       key={slice.name}
-                      fill={voteTotal > 0 ? slice.fill : "#cbd5e1"}
+                      fill={countedBallots > 0 ? slice.fill : "#cbd5e1"}
                       stroke="#fff"
                       strokeWidth={1}
                     />
@@ -153,8 +161,8 @@ export function PostSection({
                 <Tooltip
                   formatter={(value, _name, item) => {
                     const votes = Number(value);
-                    if (voteTotal <= 0) return ["Awaiting votes", item.payload.name];
-                    return [`${formatNumber(votes)} (${percent(votes, voteTotal)}%)`, item.payload.name];
+                    if (countedBallots <= 0) return ["Awaiting votes", item.payload.name];
+                    return [`${formatNumber(votes)} (${percent(votes, countedBallots)}%)`, item.payload.name];
                   }}
                 />
                 <Legend
@@ -169,9 +177,10 @@ export function PostSection({
       </div>
 
       <p className="mt-2 shrink-0 text-xs text-muted-foreground">
-        {formatNumber(post.total_verified_votes)} {requireVerification ? "verified" : "counted"}
+        {formatNumber(countedBallots)} {requireVerification ? "verified" : "counted"}
+        {invalidVotes > 0 ? ` · ${formatNumber(invalidVotes)} invalid` : ""}
         {votesPolled > 0
-          ? ` · ${percent(post.total_verified_votes, votesPolled)}% of ${formatNumber(votesPolled)} polled`
+          ? ` · ${percent(countedBallots, votesPolled)}% of ${formatNumber(votesPolled)} polled`
           : ""}
       </p>
     </motion.section>

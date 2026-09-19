@@ -17,7 +17,8 @@ export function RoundCard({
   entries: Array<CountEntry & { candidate_name: string }>;
 }) {
   const status = STATUS[round.status];
-  const total = entries.reduce((sum, entry) => sum + entry.votes, 0);
+  const invalid = round.invalid_votes ?? 0;
+  const total = entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
 
   return (
     <Card>
@@ -35,6 +36,10 @@ export function RoundCard({
             <span className="font-medium">{entry.votes}</span>
           </div>
         ))}
+        <div className="flex justify-between">
+          <span>Invalid</span>
+          <span className="font-medium">{invalid}</span>
+        </div>
         <div className="flex justify-between border-t pt-2 font-semibold">
           <span>Total</span>
           <span>{total}</span>

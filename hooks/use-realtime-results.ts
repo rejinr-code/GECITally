@@ -22,7 +22,14 @@ export function useRealtimeResults() {
       const serialized = JSON.stringify(payload);
       const changed = serialized !== lastPayload.current;
       lastPayload.current = serialized;
-      setData(payload as LiveResults);
+      const results = payload as LiveResults;
+      setData({
+        ...results,
+        posts: (results.posts ?? []).map((post) => ({
+          ...post,
+          invalid_votes: post.invalid_votes ?? 0,
+        })),
+      });
       setError(null);
       if (withFlash && changed) setFlashKey((key) => key + 1);
     } catch (err) {

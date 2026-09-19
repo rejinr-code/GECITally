@@ -53,12 +53,14 @@ export default async function StaffPostPage({
 
   const pending = (rounds ?? []).find((round) => round.status === "pending_verification") ?? null;
   const rejected = (rounds ?? []).find((round) => round.status === "rejected") ?? null;
-  const countedBallots = (entries ?? [])
-    .filter((entry) => {
-      const round = (rounds ?? []).find((item) => item.id === entry.round_id);
-      return round?.status === "verified" || round?.status === "pending_verification";
-    })
-    .reduce((sum, entry) => sum + entry.votes, 0);
+  const countedBallots = (rounds ?? [])
+    .filter((round) => round.status === "verified" || round.status === "pending_verification")
+    .reduce((sum, round) => {
+      const candidateVotes = (entries ?? [])
+        .filter((entry) => entry.round_id === round.id)
+        .reduce((inner, entry) => inner + entry.votes, 0);
+      return sum + candidateVotes + (round.invalid_votes ?? 0);
+    }, 0);
   const nextRound =
     rejected?.round_number ??
     Math.max(0, ...(rounds ?? []).map((round) => round.round_number), 0) + 1;

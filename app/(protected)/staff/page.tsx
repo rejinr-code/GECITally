@@ -66,12 +66,10 @@ export default async function StaffHomePage() {
             const counted = postRounds
               .filter((round) => round.status === "verified" || round.status === "pending_verification")
               .reduce((sum, round) => {
-                return (
-                  sum +
-                  (entries ?? [])
-                    .filter((entry) => entry.round_id === round.id)
-                    .reduce((inner, entry) => inner + entry.votes, 0)
-                );
+                const candidateVotes = (entries ?? [])
+                  .filter((entry) => entry.round_id === round.id)
+                  .reduce((inner, entry) => inner + entry.votes, 0);
+                return sum + candidateVotes + (round.invalid_votes ?? 0);
               }, 0);
             const polled = post.votes_polled ?? 0;
             return (

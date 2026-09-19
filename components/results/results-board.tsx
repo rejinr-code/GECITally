@@ -9,7 +9,7 @@ import { LiveCounter } from "@/components/results/live-counter";
 import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber, liveDisplaySettings, percent, shortPostName } from "@/lib/utils";
+import { formatDate, formatNumber, liveCountedBallots, liveDisplaySettings, percent, shortPostName } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const BIG_SCREEN_KEY = "geci-big-screen";
@@ -65,10 +65,11 @@ export function ResultsBoard() {
     if (!posts.length) return 0;
     const polled = posts.reduce((sum, post) => sum + (post.votes_polled || 0), 0);
     if (polled <= 0) return 0;
-    const counted = posts.reduce((sum, post) => sum + post.total_verified_votes, 0);
+    const counted = posts.reduce((sum, post) => sum + liveCountedBallots(post), 0);
     return percent(counted, polled);
   }, [posts]);
   const totalVotes = posts.reduce((sum, post) => sum + post.total_verified_votes, 0);
+  const totalInvalid = posts.reduce((sum, post) => sum + (post.invalid_votes ?? 0), 0);
   const declaredCount = posts.filter(
     (post) => post.is_finalised || election?.state === "finalised",
   ).length;
@@ -172,6 +173,7 @@ export function ResultsBoard() {
           <div className="hidden items-center gap-5 sm:flex">
             <Stat label="Polled" value={current?.votes_polled ?? election.total_votes_polled} />
             <Stat label="Verified" value={totalVotes} />
+            {totalInvalid > 0 ? <Stat label="Invalid" value={totalInvalid} /> : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button asChild size="sm" variant="outline">
