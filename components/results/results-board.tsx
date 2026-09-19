@@ -68,8 +68,6 @@ export function ResultsBoard() {
     const counted = posts.reduce((sum, post) => sum + liveCountedBallots(post), 0);
     return percent(counted, polled);
   }, [posts]);
-  const totalVotes = posts.reduce((sum, post) => sum + post.total_verified_votes, 0);
-  const totalInvalid = posts.reduce((sum, post) => sum + (post.invalid_votes ?? 0), 0);
   const declaredCount = posts.filter(
     (post) => post.is_finalised || election?.state === "finalised",
   ).length;
@@ -171,9 +169,12 @@ export function ResultsBoard() {
             </div>
           </div>
           <div className="hidden items-center gap-5 sm:flex">
-            <Stat label="Polled" value={current?.votes_polled ?? election.total_votes_polled} />
-            <Stat label="Verified" value={totalVotes} />
-            <Stat label="Invalid" value={current?.invalid_votes ?? totalInvalid} tone="invalid" />
+            <Stat label="Polled" value={current?.votes_polled ?? 0} />
+            <Stat
+              label={display.results_require_verification ? "Verified" : "Counted"}
+              value={current?.total_verified_votes ?? 0}
+            />
+            <Stat label="Invalid" value={current?.invalid_votes ?? 0} tone="invalid" />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button asChild size="sm" variant="outline">
