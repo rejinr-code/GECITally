@@ -33,12 +33,12 @@ export function CandidateCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "relative overflow-hidden rounded-xl border px-3 py-3",
+        "relative overflow-hidden rounded-xl border bg-white px-3 py-3 shadow-sm",
         elected
-          ? "border-amber-300/80 bg-gradient-to-r from-amber-400/20 via-emerald-900/70 to-emerald-950/80 shadow-[0_0_24px_rgba(251,191,36,0.28)]"
+          ? "border-amber-400 bg-gradient-to-r from-amber-50 via-white to-emerald-50 shadow-[0_0_20px_rgba(251,191,36,0.28)]"
           : leading
-            ? "border-emerald-300/50 bg-emerald-900/50"
-            : "border-white/10 bg-black/25",
+            ? "border-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]"
+            : "border-emerald-100",
       )}
     >
       {elected ? (
@@ -54,7 +54,7 @@ export function CandidateCard({
         <span
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-md text-sm font-bold tabular-nums",
-            elected ? "bg-amber-300 text-emerald-950" : "bg-white/10 text-white",
+            elected ? "bg-amber-300 text-emerald-950" : "bg-emerald-100 text-emerald-800",
           )}
         >
           {rank}
@@ -66,7 +66,7 @@ export function CandidateCard({
             alt=""
             className={cn(
               "size-12 rounded-full object-cover ring-2 md:size-14",
-              elected ? "ring-amber-300" : "ring-white/20",
+              elected ? "ring-amber-400" : "ring-emerald-100",
             )}
           />
         ) : (
@@ -74,8 +74,8 @@ export function CandidateCard({
             className={cn(
               "flex size-12 items-center justify-center rounded-full text-sm font-semibold ring-2 md:size-14",
               elected
-                ? "bg-amber-200 text-emerald-950 ring-amber-300"
-                : "bg-emerald-800 text-white ring-white/20",
+                ? "bg-amber-200 text-emerald-950 ring-amber-400"
+                : "bg-emerald-100 text-emerald-800 ring-emerald-200",
             )}
           >
             {initials(candidate.name)}
@@ -83,22 +83,22 @@ export function CandidateCard({
         )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <h3 className="truncate text-lg font-semibold text-white md:text-xl">{candidate.name}</h3>
+            <h3 className="truncate text-lg font-semibold text-emerald-950 md:text-xl">{candidate.name}</h3>
             {classLabel ? (
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
                 {classLabel}
               </span>
             ) : null}
           </div>
-          <p className="text-xs text-emerald-100/70">
+          <p className="text-xs text-muted-foreground">
             {candidate.panel_name ?? "Independent"}
             {leading && !elected ? ` · Leading · Top ${seats}` : ""}
           </p>
-          <div className="mt-2 h-3 overflow-hidden rounded-full bg-black/40">
+          <div className="mt-2 h-3 overflow-hidden rounded-full bg-emerald-50">
             <motion.div
               className={cn(
                 "h-full rounded-full",
-                elected ? "bg-amber-300" : leading ? "bg-emerald-400" : "bg-slate-400",
+                elected ? "bg-amber-400" : leading ? "bg-emerald-500" : "bg-slate-400",
               )}
               initial={false}
               animate={{ width: `${width}%` }}
@@ -111,10 +111,10 @@ export function CandidateCard({
             value={candidate.votes}
             className={cn(
               "block text-3xl font-black tabular-nums leading-none md:text-4xl",
-              elected ? "text-amber-300" : "text-white",
+              elected ? "text-amber-600" : "text-emerald-800",
             )}
           />
-          <p className="mt-1 text-[11px] tabular-nums text-emerald-200">{share}% share</p>
+          <p className="mt-1 text-[11px] tabular-nums text-emerald-600">{share}% share</p>
         </div>
       </div>
     </motion.article>

@@ -9,14 +9,14 @@ import type { ElectionState, LivePost } from "@/lib/types";
 import { formatNumber, percent } from "@/lib/utils";
 
 const SLICE_COLORS = [
-  "#34d399",
-  "#38bdf8",
-  "#fbbf24",
-  "#a78bfa",
-  "#fb7185",
-  "#2dd4bf",
-  "#a3e635",
-  "#818cf8",
+  "#059669",
+  "#0ea5e9",
+  "#f59e0b",
+  "#8b5cf6",
+  "#f43f5e",
+  "#14b8a6",
+  "#84cc16",
+  "#6366f1",
 ];
 
 export function PostSection({
@@ -51,9 +51,9 @@ export function PostSection({
     <motion.section
       layout
       key={`${post.id}-${flashKey}`}
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-emerald-950/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] md:p-4"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/85 p-3 shadow-sm backdrop-blur md:p-4"
       initial={false}
-      animate={{ boxShadow: flashKey ? "0 0 0 4px rgba(52,211,153,0.35)" : "inset 0 1px 0 rgba(255,255,255,0.08)" }}
+      animate={{ boxShadow: flashKey ? "0 0 0 4px rgba(16,185,129,0.22)" : "0 1px 2px rgba(0,0,0,0.04)" }}
       transition={{ duration: 0.8 }}
     >
       {winners.length > 0 ? <WinnerBurst key={post.id} winners={winners} seats={post.seats} /> : null}
@@ -64,8 +64,8 @@ export function PostSection({
             <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-300 text-sm font-black tabular-nums text-emerald-950 md:size-9 md:text-base">
               {serial}
             </span>
-            <h2 className="text-xl font-semibold tracking-tight text-white md:text-3xl">{post.name}</h2>
-            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
+            <h2 className="text-xl font-semibold tracking-tight text-emerald-950 md:text-3xl">{post.name}</h2>
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
               {post.seats} seat{post.seats > 1 ? "s" : ""}
             </span>
             {declared ? (
@@ -73,25 +73,25 @@ export function PostSection({
                 DECLARED
               </span>
             ) : (
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
                 Counting
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs text-emerald-200/80">
+          <p className="mt-1 text-xs text-muted-foreground">
             Verified rounds {post.verified_rounds}/{countLimit}
             {post.pending_rounds ? ` · ${post.pending_rounds} pending` : ""}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-300">Verified votes</p>
-          <LiveCounter value={post.total_verified_votes} className="text-4xl font-black tabular-nums text-white" />
+          <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">Verified votes</p>
+          <LiveCounter value={post.total_verified_votes} className="text-4xl font-black tabular-nums text-emerald-950" />
         </div>
       </div>
 
-      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-black/40">
+      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-emerald-100">
         <div
-          className="h-full rounded-full bg-emerald-400"
+          className="h-full rounded-full bg-emerald-500"
           style={{ width: `${percent(post.verified_rounds, countLimit)}%` }}
         />
       </div>
@@ -119,8 +119,8 @@ export function PostSection({
             ))}
           </AnimatePresence>
         </div>
-        <div className="flex min-h-0 flex-col rounded-xl border border-white/10 bg-black/20 p-2">
-          <p className="px-2 pt-1 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200">
+        <div className="flex min-h-0 flex-col rounded-xl border border-emerald-100 bg-slate-50 p-2">
+          <p className="px-2 pt-1 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
             Vote share
           </p>
           <div className="min-h-0 flex-1">
@@ -141,8 +141,8 @@ export function PostSection({
                   {pieData.map((slice) => (
                     <Cell
                       key={slice.name}
-                      fill={voteTotal > 0 ? slice.fill : "#334155"}
-                      stroke="#06281d"
+                      fill={voteTotal > 0 ? slice.fill : "#cbd5e1"}
+                      stroke="#fff"
                       strokeWidth={1}
                     />
                   ))}
@@ -157,7 +157,7 @@ export function PostSection({
                 <Legend
                   verticalAlign="bottom"
                   height={36}
-                  formatter={(value) => <span className="text-xs text-emerald-100">{value}</span>}
+                  formatter={(value) => <span className="text-xs text-slate-600">{value}</span>}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -165,7 +165,7 @@ export function PostSection({
         </div>
       </div>
 
-      <p className="mt-2 shrink-0 text-xs text-emerald-200/80">
+      <p className="mt-2 shrink-0 text-xs text-muted-foreground">
         {formatNumber(post.total_verified_votes)} verified
         {votesPolled > 0
           ? ` · ${percent(post.total_verified_votes, votesPolled)}% of ${formatNumber(votesPolled)} polled`

@@ -112,11 +112,11 @@ export function ResultsBoard() {
   return (
     <div
       className={cn(
-        "flex h-dvh flex-col overflow-hidden bg-[radial-gradient(ellipse_at_top,_#0f766e_0%,_#042f2e_38%,_#022c22_100%)] text-white",
+        "flex h-dvh flex-col overflow-hidden bg-[radial-gradient(circle_at_top,_#d1fae5,_#f8fafc_42%)] text-emerald-950",
         bigScreen && "big-screen",
       )}
     >
-      <header className="shrink-0 border-b border-white/10 bg-black/30">
+      <header className="shrink-0 border-b border-emerald-200 bg-white/90 backdrop-blur">
         <div className="flex items-center gap-3 px-3 py-2 md:px-4">
           <GeciMark className="size-10 md:size-11" />
           <div className="min-w-0 flex-1">
@@ -137,16 +137,16 @@ export function ResultsBoard() {
               </span>
               <p className="text-sm font-semibold leading-none">GECI Tally</p>
               <span className="hidden text-emerald-400 sm:inline">·</span>
-              <p className="truncate text-sm text-emerald-50">{election.name}</p>
-              <span className="hidden text-xs text-emerald-200 md:inline">
+              <p className="truncate text-sm text-emerald-800">{election.name}</p>
+              <span className="hidden text-xs text-emerald-600 md:inline">
                 {formatDate(election.date)}
               </span>
             </div>
             <div className="mt-1.5 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/40">
-                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${progress}%` }} />
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-emerald-100">
+                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
               </div>
-              <span className="text-[11px] tabular-nums text-emerald-100">
+              <span className="text-[11px] tabular-nums text-emerald-700">
                 {progress}% · {declaredCount}/{posts.length} declared
               </span>
             </div>
@@ -159,7 +159,7 @@ export function ResultsBoard() {
             type="button"
             size="sm"
             variant={bigScreen ? "secondary" : "outline"}
-            className={cn("shrink-0", !bigScreen && "border-white/30 bg-transparent text-white hover:bg-white/10")}
+            className="shrink-0"
             onClick={() => setBigScreenMode(!bigScreen)}
           >
             {bigScreen ? "Exit hall" : "Hall view"}
@@ -169,8 +169,8 @@ export function ResultsBoard() {
 
       <div className="flex min-h-0 flex-1">
         {posts.length > 0 ? (
-          <nav className="flex w-[11.5rem] shrink-0 flex-col border-r border-white/10 bg-black/25 md:w-60">
-            <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-300">
+          <nav className="flex w-[11.5rem] shrink-0 flex-col border-r border-emerald-100 bg-white/70 md:w-60">
+            <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-600">
               Posts
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -186,14 +186,14 @@ export function ResultsBoard() {
                     className={cn(
                       "mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition",
                       index === safeIndex
-                        ? "bg-amber-300 text-emerald-950 shadow-[0_0_0_1px_rgba(251,191,36,0.6)]"
-                        : "text-emerald-50 hover:bg-white/10",
+                        ? "bg-emerald-800 text-white shadow-sm"
+                        : "text-emerald-900 hover:bg-emerald-50",
                     )}
                   >
                     <span
                       className={cn(
                         "flex size-6 shrink-0 items-center justify-center rounded text-[11px] font-black tabular-nums",
-                        index === safeIndex ? "bg-emerald-950 text-amber-300" : "bg-white/10",
+                        index === safeIndex ? "bg-amber-300 text-emerald-950" : "bg-emerald-100 text-emerald-800",
                       )}
                     >
                       {index + 1}
@@ -205,7 +205,7 @@ export function ResultsBoard() {
                       <span
                         className={cn(
                           "size-1.5 shrink-0 rounded-full",
-                          index === safeIndex ? "bg-emerald-800" : "bg-amber-300",
+                          index === safeIndex ? "bg-amber-300" : "bg-amber-500",
                         )}
                       />
                     ) : null}
@@ -240,22 +240,22 @@ export function ResultsBoard() {
               </motion.div>
             </AnimatePresence>
           ) : (
-            <p className="m-auto text-emerald-100">No posts configured yet.</p>
+            <p className="m-auto text-muted-foreground">No posts configured yet.</p>
           )}
         </main>
       </div>
 
-      <footer className="flex h-9 shrink-0 items-center gap-3 overflow-hidden border-t border-amber-300/20 bg-black/50 px-3">
+      <footer className="flex h-9 shrink-0 items-center gap-3 overflow-hidden border-t border-emerald-100 bg-white/90 px-3">
         {posts.length > 0 ? (
-          <div key={cycle} className="h-0.5 w-16 shrink-0 overflow-hidden rounded-full bg-emerald-900/80">
+          <div key={cycle} className="h-0.5 w-16 shrink-0 overflow-hidden rounded-full bg-emerald-100">
             <div
-              className="h-full bg-amber-300"
+              className="h-full bg-emerald-600"
               style={{ animation: `resultsRotate ${POST_ROTATE_MS}ms linear` }}
             />
           </div>
         ) : null}
         <div className="min-w-0 flex-1 overflow-hidden [&_img]:h-5 [&_>div]:max-w-full [&_>div]:gap-2 [&_>div]:px-2 [&_>div]:py-0">
-          <MulearnCredit light compact />
+          <MulearnCredit compact />
         </div>
       </footer>
     </div>
@@ -265,8 +265,8 @@ export function ResultsBoard() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-right">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-200">{label}</p>
-      <LiveCounter value={value} className="text-lg font-semibold tabular-nums leading-none md:text-xl" />
+      <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">{label}</p>
+      <LiveCounter value={value} className="text-lg font-semibold tabular-nums leading-none text-emerald-950 md:text-xl" />
       <p className="sr-only">{formatNumber(value)}</p>
     </div>
   );

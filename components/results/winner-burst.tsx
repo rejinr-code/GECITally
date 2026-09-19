@@ -43,7 +43,7 @@ export function WinnerBurst({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="absolute inset-0 bg-emerald-950/70 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px]" />
           {CONFETTI.map((piece) => (
             <span
               key={piece.id}
@@ -64,29 +64,29 @@ export function WinnerBurst({
             animate={{ scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 160, damping: 14 }}
           >
-            <p className="text-xs font-semibold tracking-[0.45em] text-amber-300">RESULT DECLARED</p>
+            <p className="text-xs font-semibold tracking-[0.45em] text-amber-600">RESULT DECLARED</p>
             <div className="mt-4 flex items-center gap-4">
               {lead.photo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={lead.photo_url}
                   alt=""
-                  className="size-20 rounded-full object-cover ring-4 ring-amber-300 md:size-24"
+                  className="size-20 rounded-full object-cover ring-4 ring-amber-400 md:size-24"
                 />
               ) : (
-                <div className="flex size-20 items-center justify-center rounded-full bg-amber-300 text-2xl font-bold text-emerald-950 ring-4 ring-white md:size-24">
+                <div className="flex size-20 items-center justify-center rounded-full bg-amber-300 text-2xl font-bold text-emerald-950 ring-4 ring-emerald-800 md:size-24">
                   {initials(lead.name)}
                 </div>
               )}
               <div className="text-left">
                 <p
-                  className="bg-[linear-gradient(90deg,#fde68a,#fff,#f59e0b,#fde68a)] bg-[length:200%_100%] bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
+                  className="bg-[linear-gradient(90deg,#b45309,#ca8a04,#f59e0b,#b45309)] bg-[length:200%_100%] bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
                   style={{ animation: "goldShine 1.6s linear infinite" }}
                 >
                   {headline}
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-white md:text-3xl">{lead.name}</p>
-                <p className="text-sm text-emerald-100">
+                <p className="mt-1 text-2xl font-semibold text-emerald-950 md:text-3xl">{lead.name}</p>
+                <p className="text-sm text-emerald-700">
                   {[candidateClassLabel(lead.branch, lead.year, lead.semester), lead.panel_name]
                     .filter(Boolean)
                     .join(" · ")}
@@ -94,7 +94,7 @@ export function WinnerBurst({
               </div>
             </div>
             {winners.length > 1 ? (
-              <p className="mt-4 text-sm text-amber-100">
+              <p className="mt-4 text-sm text-amber-800">
                 with {winners.slice(1).map((winner) => winner.name).join(", ")}
               </p>
             ) : null}
