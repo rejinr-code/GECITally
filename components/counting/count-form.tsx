@@ -47,7 +47,7 @@ export function CountForm({
 }: Props) {
   const [votes, setVotes] = useState<Record<string, number>>(() => emptyTally(candidates));
   const [history, setHistory] = useState<string[]>([]);
-  const [pendingCandidate, setPendingCandidate] = useState<Candidate | null>(null);
+  const [pendingCandidateId, setPendingCandidateId] = useState<string | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isSubmitting, run } = useAntiDuplicate();
@@ -61,27 +61,33 @@ export function CountForm({
   const blocked = Boolean(pendingRound) || !countingOpen || (limitReached && !rejectedRound);
   const canCount = !blocked && !isSubmitting;
 
-  function requestAdd(candidate: Candidate) {
+  function requestAdd(candidateId: string) {
+    if (!canCount) return;
     setError(null);
-    setPendingCandidate(candidate);
+    setPendingCandidateId(candidateId);
   }
 
-  function confirmAdd() {
-    if (!pendingCandidate) return;
-    const id = pendingCandidate.id;
-    setVotes((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
-    setHistory((current) => [...current, id]);
-    setPendingCandidate(null);
+  function cancelPending() {
+    setPendingCandidateId(null);
+  }
+
+  function confirmAdd(candidateId: string) {
+    if (!canCount || pendingCandidateId !== candidateId) return;
+    setVotes((current) => ({ ...current, [candidateId]: (current[candidateId] ?? 0) + 1 }));
+    setHistory((current) => [...current, candidateId]);
+    setPendingCandidateId(null);
   }
 
   function undoLast() {
     const id = history[history.length - 1];
     if (!id) return;
+    setPendingCandidateId(null);
     setVotes((current) => ({ ...current, [id]: Math.max(0, (current[id] ?? 0) - 1) }));
     setHistory((current) => current.slice(0, -1));
   }
 
   function openSubmit() {
+    if (pendingCandidateId) return;
     setError(null);
     setSubmitOpen(true);
   }
@@ -102,6 +108,7 @@ export function CountForm({
       }
       toast.success(`Round ${roundNumber} submitted for verification.`);
       setSubmitOpen(false);
+      setPendingCandidateId(null);
       setVotes(emptyTally(candidates));
       setHistory([]);
     });
@@ -113,7 +120,7 @@ export function CountForm({
         <div>
           <CardTitle>Round {roundNumber}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Click Add vote, confirm the candidate, and the count goes up by one. Do not type numbers.
+            Add vote on a candidate, then Confirm on the same card. Count goes up by one. Do not type numbers.
           </p>
         </div>
         {pendingRound && <Badge variant="warning">Awaiting supervisor verification</Badge>}
@@ -136,16 +143,18 @@ export function CountForm({
           </p>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex gap-3 overflow-x-auto pb-1">
           {rows.map(({ candidate, votes: count }) => {
             const classLabel = candidateClassLabel(candidate.branch, candidate.year, candidate.semester);
             const isLast = candidate.id === lastId;
+            const isPending = pendingCandidateId === candidate.id;
             return (
               <article
                 key={candidate.id}
                 className={cn(
-                  "rounded-2xl border bg-white p-4 shadow-sm transition",
-                  isLast && "border-emerald-500 ring-2 ring-emerald-200",
+                  "min-w-[16.5rem] flex-1 rounded-2xl border bg-white p-4 shadow-sm transition",
+                  isPending && "border-amber-400 ring-2 ring-amber-200",
+                  isLast && !isPending && "border-emerald-500 ring-2 ring-emerald-200",
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -162,17 +171,46 @@ export function CountForm({
                       </span>
                     </div>
                   </div>
-                  <p className="text-3xl font-semibold tabular-nums text-emerald-800">{formatNumber(count)}</p>
+                  <div className="text-right">
+                    <p className="text-3xl font-semibold tabular-nums text-emerald-800">
+                      {formatNumber(count)}
+                    </p>
+                    {isPending ? (
+                      <p className="text-xs font-medium text-amber-700">
+                        → {formatNumber(count + 1)}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-                <Button
-                  type="button"
-                  size="lg"
-                  className="mt-4 w-full"
-                  disabled={!canCount}
-                  onClick={() => requestAdd(candidate)}
-                >
-                  Add vote
-                </Button>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant={isPending ? "outline" : "default"}
+                    disabled={!canCount}
+                    onClick={() => requestAdd(candidate.id)}
+                  >
+                    Add vote
+                  </Button>
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant={isPending ? "default" : "secondary"}
+                    disabled={!canCount || !isPending}
+                    onClick={() => confirmAdd(candidate.id)}
+                  >
+                    Confirm
+                  </Button>
+                </div>
+                {isPending ? (
+                  <button
+                    type="button"
+                    className="mt-2 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    onClick={cancelPending}
+                  >
+                    Cancel this vote
+                  </button>
+                ) : null}
               </article>
             );
           })}
@@ -194,46 +232,16 @@ export function CountForm({
             <Button type="button" variant="outline" disabled={!canCount || !history.length} onClick={undoLast}>
               Undo last vote
             </Button>
-            <Button type="button" onClick={openSubmit} disabled={blocked || isSubmitting || total === 0}>
+            <Button
+              type="button"
+              onClick={openSubmit}
+              disabled={blocked || isSubmitting || total === 0 || Boolean(pendingCandidateId)}
+            >
               Review and submit
             </Button>
           </div>
         </div>
       </CardContent>
-
-      <Dialog open={Boolean(pendingCandidate)} onOpenChange={(open) => !open && setPendingCandidate(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add 1 vote?</DialogTitle>
-            <DialogDescription>
-              {pendingCandidate
-                ? `This will raise ${pendingCandidate.name} from ${formatNumber(votes[pendingCandidate.id] ?? 0)} to ${formatNumber((votes[pendingCandidate.id] ?? 0) + 1)}.`
-                : "Confirm this vote."}
-            </DialogDescription>
-          </DialogHeader>
-          {pendingCandidate ? (
-            <div className="rounded-xl border bg-muted/40 px-4 py-3">
-              <p className="font-semibold">{pendingCandidate.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {[
-                  candidateClassLabel(pendingCandidate.branch, pendingCandidate.year, pendingCandidate.semester),
-                  pendingCandidate.panel_name || "Independent",
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setPendingCandidate(null)}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={confirmAdd}>
-              Confirm vote
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={submitOpen} onOpenChange={(value) => !isSubmitting && setSubmitOpen(value)}>
         <DialogContent>
