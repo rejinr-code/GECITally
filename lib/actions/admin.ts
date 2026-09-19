@@ -443,10 +443,15 @@ export async function updateProfileRole(profileId: string, role: UserRole) {
   }
 }
 
-export async function resetElectionCounts(electionId: string) {
+export async function resetElectionCounts(electionId: string, password: string) {
   try {
-    const { supabase } = await requireAdmin();
-    const { error } = await supabase.rpc("reset_election_counts", {
+    if (typeof password !== "string" || !password.trim()) {
+      return { error: "Enter your admin password to confirm." };
+    }
+    const confirmed = await confirmAdminPassword(password);
+    if ("error" in confirmed) return { error: confirmed.error };
+
+    const { error } = await confirmed.supabase.rpc("reset_election_counts", {
       p_election_id: electionId,
     });
     if (error) return { error: error.message };

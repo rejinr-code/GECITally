@@ -33,9 +33,10 @@ export function ElectionSettings({ election }: { election: Election | null }) {
   const { isSubmitting, run } = useAntiDuplicate();
   const { isSubmitting: stateBusy, run: runState } = useAntiDuplicate();
   const { isSubmitting: displayBusy, run: runDisplay } = useAntiDuplicate();
-  const [resetting, setResetting] = useState(false);
+  const { isSubmitting: resetBusy, run: runReset } = useAntiDuplicate();
   const [pendingState, setPendingState] = useState<ElectionState | null>(null);
   const [displayOpen, setDisplayOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const display = liveDisplaySettings(election);
@@ -48,6 +49,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
   function openStateDialog(state: ElectionState) {
     if (!election || election.state === state) return;
     setDisplayOpen(false);
+    setResetOpen(false);
     setPassword("");
     setPasswordError(null);
     setPendingState(state);
@@ -63,6 +65,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
   function openDisplayDialog() {
     if (!election) return;
     setPendingState(null);
+    setResetOpen(false);
     setPassword("");
     setPasswordError(null);
     window.setTimeout(() => setDisplayOpen(true), 0);
@@ -86,6 +89,38 @@ export function ElectionSettings({ election }: { election: Election | null }) {
       }
       toast.success(`Election is now ${pendingState}.`);
       setPendingState(null);
+      setPassword("");
+      setPasswordError(null);
+    });
+  }
+
+  function openResetDialog() {
+    if (!election) return;
+    setPendingState(null);
+    setDisplayOpen(false);
+    setPassword("");
+    setPasswordError(null);
+    window.setTimeout(() => setResetOpen(true), 0);
+  }
+
+  function closeResetDialog() {
+    if (resetBusy) return;
+    setResetOpen(false);
+    setPassword("");
+    setPasswordError(null);
+  }
+
+  function confirmReset() {
+    if (!election) return;
+    void runReset(async () => {
+      const result = await resetElectionCounts(election.id, password);
+      if (result.error) {
+        setPasswordError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Counts reset.");
+      setResetOpen(false);
       setPassword("");
       setPasswordError(null);
     });
@@ -211,24 +246,16 @@ export function ElectionSettings({ election }: { election: Election | null }) {
             <p className="text-sm font-medium text-red-800">Reset all counts</p>
             <p className="mt-1 text-xs text-red-700">
               Deletes every submitted round and returns the election to setup. This cannot be undone.
+              Confirm with your admin password.
             </p>
             <Button
               className="mt-3"
               type="button"
               variant="destructive"
-              disabled={!election || resetting}
-              onClick={() => {
-                if (!election) return;
-                if (!window.confirm("Reset all counts? This cannot be undone.")) return;
-                setResetting(true);
-                void resetElectionCounts(election.id).then((result) => {
-                  setResetting(false);
-                  if (result.error) toast.error(result.error);
-                  else toast.success("Counts reset.");
-                });
-              }}
+              disabled={!election || resetBusy}
+              onClick={openResetDialog}
             >
-              {resetting ? <Spinner /> : null}
+              {resetBusy ? <Spinner /> : null}
               Reset counts
             </Button>
           </div>
@@ -446,6 +473,59 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 <Button type="submit" disabled={displayBusy || !password.trim()}>
                   {displayBusy ? <Spinner /> : null}
                   Confirm
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {resetOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-confirm-title"
+            className="w-full max-w-md rounded-xl border bg-white p-6 shadow-2xl"
+          >
+            <h2 id="reset-confirm-title" className="text-lg font-semibold">
+              Reset all counts?
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This deletes every submitted round and returns the election to setup. It cannot be
+              undone. Enter your admin password, then confirm.
+            </p>
+            <form
+              className="mt-4 space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                confirmReset();
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="reset-password">Admin password</Label>
+                <Input
+                  id="reset-password"
+                  type="password"
+                  autoComplete="off"
+                  value={password}
+                  autoFocus
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setPasswordError(null);
+                  }}
+                  required
+                />
+              </div>
+              {passwordError ? <p className="text-sm text-red-700">{passwordError}</p> : null}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" disabled={resetBusy} onClick={closeResetDialog}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="destructive" disabled={resetBusy || !password.trim()}>
+                  {resetBusy ? <Spinner /> : null}
+                  Reset counts
                 </Button>
               </div>
             </form>
