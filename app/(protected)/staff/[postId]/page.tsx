@@ -64,7 +64,7 @@ export default async function StaffPostPage({
     Math.max(0, ...(rounds ?? []).map((round) => round.round_number), 0) + 1;
 
   const candidateNames = new Map((candidates ?? []).map((candidate) => [candidate.id, candidate.name]));
-  const requireSupervisor = liveDisplaySettings(election).counting_require_verification;
+  const requireSupervisor = liveDisplaySettings(election).counting_requires_supervisor;
 
   return (
     <div className="space-y-6">

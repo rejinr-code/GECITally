@@ -55,7 +55,7 @@ export default async function SupervisorPage() {
   const staffMap = new Map((staffProfiles ?? []).map((person) => [person.id, person]));
   const candidateMap = new Map((candidates ?? []).map((candidate) => [candidate.id, candidate]));
 
-  const requireSupervisor = liveDisplaySettings(election).counting_require_verification;
+  const requireSupervisor = liveDisplaySettings(election).counting_requires_supervisor;
 
   const queue: PendingRound[] = ((pendingRounds ?? []) as CountRound[]).flatMap((round) => {
     const post = postMap.get(round.post_id);

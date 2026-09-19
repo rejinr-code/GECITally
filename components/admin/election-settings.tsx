@@ -270,7 +270,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                   className="mt-1"
                   checked={countingRequireVerification}
                   onChange={() => setCountingRequireVerification(true)}
-                  disabled={!election}
+                  disabled={!election || !requireVerification}
                 />
                 <span>
                   <span className="font-medium">With supervisor approval</span>
@@ -322,13 +322,17 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                   name="results_display_mode"
                   className="mt-1"
                   checked={!requireVerification}
-                  onChange={() => setRequireVerification(false)}
+                  onChange={() => {
+                    setRequireVerification(false);
+                    setCountingRequireVerification(false);
+                  }}
                   disabled={!election}
                 />
                 <span>
                   <span className="font-medium">Directly after staff submit</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Pending rounds appear immediately. Rejected rounds are removed.
+                    Pending rounds appear immediately. Staff can start the next round without waiting
+                    for a supervisor. Rejected rounds are removed.
                   </span>
                 </span>
               </label>

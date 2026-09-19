@@ -30,7 +30,7 @@ export default async function StaffHomePage() {
     ? await supabase.from("posts").select("id, name, seats, votes_polled").in("id", postIds)
     : { data: [] as AssignedPost[] };
 
-  const requireSupervisor = liveDisplaySettings(election).counting_require_verification;
+  const requireSupervisor = liveDisplaySettings(election).counting_requires_supervisor;
 
   const { data: rounds } = postIds.length
     ? await supabase
