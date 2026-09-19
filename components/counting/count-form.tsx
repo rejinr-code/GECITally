@@ -46,7 +46,7 @@ export function CountForm({
   limitReached,
 }: Props) {
   const [votes, setVotes] = useState<Record<string, number>>(() => emptyTally(candidates));
-  const [history, setHistory] = useState<string[]>([]);
+  const [lastId, setLastId] = useState<string | null>(null);
   const [pendingCandidateId, setPendingCandidateId] = useState<string | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,6 @@ export function CountForm({
     [candidates, votes],
   );
   const total = rows.reduce((sum, row) => sum + row.votes, 0);
-  const lastId = history[history.length - 1] ?? null;
   const blocked = Boolean(pendingRound) || !countingOpen || (limitReached && !rejectedRound);
   const canCount = !blocked && !isSubmitting;
 
@@ -74,16 +73,8 @@ export function CountForm({
   function confirmAdd(candidateId: string) {
     if (!canCount || pendingCandidateId !== candidateId) return;
     setVotes((current) => ({ ...current, [candidateId]: (current[candidateId] ?? 0) + 1 }));
-    setHistory((current) => [...current, candidateId]);
+    setLastId(candidateId);
     setPendingCandidateId(null);
-  }
-
-  function undoLast() {
-    const id = history[history.length - 1];
-    if (!id) return;
-    setPendingCandidateId(null);
-    setVotes((current) => ({ ...current, [id]: Math.max(0, (current[id] ?? 0) - 1) }));
-    setHistory((current) => current.slice(0, -1));
   }
 
   function openSubmit() {
@@ -110,7 +101,7 @@ export function CountForm({
       setSubmitOpen(false);
       setPendingCandidateId(null);
       setVotes(emptyTally(candidates));
-      setHistory([]);
+      setLastId(null);
     });
   }
 
@@ -228,18 +219,13 @@ export function CountForm({
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" disabled={!canCount || !history.length} onClick={undoLast}>
-              Undo last vote
-            </Button>
-            <Button
-              type="button"
-              onClick={openSubmit}
-              disabled={blocked || isSubmitting || total === 0 || Boolean(pendingCandidateId)}
-            >
-              Review and submit
-            </Button>
-          </div>
+          <Button
+            type="button"
+            onClick={openSubmit}
+            disabled={blocked || isSubmitting || total === 0 || Boolean(pendingCandidateId)}
+          >
+            Review and submit
+          </Button>
         </div>
       </CardContent>
 
