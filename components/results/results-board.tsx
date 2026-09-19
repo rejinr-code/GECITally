@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRealtimeResults } from "@/hooks/use-realtime-results";
 import { PostSection } from "@/components/results/post-section";
@@ -88,13 +89,23 @@ export function ResultsBoard() {
   }
 
   if (loading) {
-    return <p className="py-24 text-center text-muted-foreground">Loading live results…</p>;
+    return (
+      <p className="py-24 text-center text-muted-foreground">
+        Loading live results…{" "}
+        <Link href="/" className="text-primary hover:underline">
+          Home
+        </Link>
+      </p>
+    );
   }
 
   if (error) {
     return (
       <p className="mx-auto max-w-xl rounded-xl bg-red-50 p-6 text-center text-red-800">
-        {error}. Confirm the Supabase URL/keys and that the schema migration has been applied.
+        {error}. Confirm the Supabase URL/keys and that the schema migration has been applied.{" "}
+        <Link href="/" className="font-medium text-red-950 hover:underline">
+          Home
+        </Link>
       </p>
     );
   }
@@ -102,7 +113,10 @@ export function ResultsBoard() {
   if (!election) {
     return (
       <p className="py-24 text-center text-muted-foreground">
-        No election has been configured yet.
+        No election has been configured yet.{" "}
+        <Link href="/" className="text-primary hover:underline">
+          Home
+        </Link>
       </p>
     );
   }
@@ -118,7 +132,10 @@ export function ResultsBoard() {
     >
       <header className="shrink-0 border-b border-emerald-200 bg-white/90 backdrop-blur">
         <div className="flex items-center gap-3 px-3 py-2 md:px-4">
-          <GeciMark className="size-10 md:size-11" />
+          <Link href="/" className="shrink-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <GeciMark className="size-10 md:size-11" />
+            <span className="sr-only">Home</span>
+          </Link>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span
@@ -155,15 +172,19 @@ export function ResultsBoard() {
             <Stat label="Polled" value={current?.votes_polled ?? election.total_votes_polled} />
             <Stat label="Verified" value={totalVotes} />
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant={bigScreen ? "secondary" : "outline"}
-            className="shrink-0"
-            onClick={() => setBigScreenMode(!bigScreen)}
-          >
-            {bigScreen ? "Exit hall" : "Hall view"}
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link href="/">Home</Link>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={bigScreen ? "secondary" : "outline"}
+              onClick={() => setBigScreenMode(!bigScreen)}
+            >
+              {bigScreen ? "Exit hall" : "Hall view"}
+            </Button>
+          </div>
         </div>
       </header>
 
