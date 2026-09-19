@@ -47,12 +47,19 @@ export function PostSection({
       votes: candidate.votes,
       fill: SLICE_COLORS[index % SLICE_COLORS.length],
     })),
-    ...(invalidVotes > 0
-      ? [{ name: "Invalid", shortName: "Invalid", votes: invalidVotes, fill: "#94a3b8" }]
-      : []),
+    { name: "Invalid", shortName: "Invalid", votes: invalidVotes, fill: "#dc2626" },
   ];
-  const pieData = countedBallots > 0 ? chartData : chartData.map((row) => ({ ...row, votes: 1 }));
+  const pieData =
+    countedBallots > 0
+      ? chartData
+      : ranked.map((candidate, index) => ({
+          name: candidate.name,
+          shortName: candidate.name.split(" ")[0] ?? candidate.name,
+          votes: 1,
+          fill: SLICE_COLORS[index % SLICE_COLORS.length],
+        }));
   const twoCol = ranked.length > 2;
+  const barMax = Math.max(maxVotes, invalidVotes);
 
   return (
     <motion.section
@@ -88,15 +95,21 @@ export function PostSection({
           <p className="mt-1 text-xs text-muted-foreground">
             {formatNumber(countedBallots)}
             {votesPolled > 0 ? ` / ${formatNumber(votesPolled)} polled` : " counted"}
-            {invalidVotes > 0 ? ` · ${formatNumber(invalidVotes)} invalid` : ""}
+            <span className="font-medium text-red-700"> · {formatNumber(invalidVotes)} invalid</span>
             {post.pending_rounds ? ` · ${post.pending_rounds} pending rounds` : ""}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">
-            {requireVerification ? "Verified votes" : "Live votes"}
-          </p>
-          <LiveCounter value={post.total_verified_votes} className="text-4xl font-black tabular-nums text-emerald-950" />
+        <div className="flex items-end gap-5">
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-red-600">Invalid</p>
+            <LiveCounter value={invalidVotes} className="text-4xl font-black tabular-nums text-red-700" />
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">
+              {requireVerification ? "Verified votes" : "Live votes"}
+            </p>
+            <LiveCounter value={post.total_verified_votes} className="text-4xl font-black tabular-nums text-emerald-950" />
+          </div>
         </div>
       </div>
 
@@ -128,6 +141,7 @@ export function PostSection({
                 share={percent(candidate.votes, candidateVotes)}
               />
             ))}
+            <InvalidVotesCard votes={invalidVotes} maxVotes={barMax} share={percent(invalidVotes, countedBallots)} />
           </AnimatePresence>
         </div>
         <div className="flex min-h-0 flex-col rounded-xl border border-emerald-100 bg-slate-50 p-2">
@@ -178,11 +192,57 @@ export function PostSection({
 
       <p className="mt-2 shrink-0 text-xs text-muted-foreground">
         {formatNumber(countedBallots)} {requireVerification ? "verified" : "counted"}
-        {invalidVotes > 0 ? ` · ${formatNumber(invalidVotes)} invalid` : ""}
+        <span className="font-medium text-red-700"> · {formatNumber(invalidVotes)} invalid</span>
         {votesPolled > 0
           ? ` · ${percent(countedBallots, votesPolled)}% of ${formatNumber(votesPolled)} polled`
           : ""}
       </p>
     </motion.section>
+  );
+}
+
+function InvalidVotesCard({
+  votes,
+  maxVotes,
+  share,
+}: {
+  votes: number;
+  maxVotes: number;
+  share: number;
+}) {
+  const width = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
+
+  return (
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative overflow-hidden rounded-xl border border-red-300 bg-red-50 px-3 py-3 shadow-sm"
+    >
+      <div className="flex items-center gap-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-red-200 text-xs font-bold text-red-900">
+          INV
+        </span>
+        <div className="flex size-12 items-center justify-center rounded-full bg-red-200 text-xs font-semibold text-red-800 ring-2 ring-red-300 md:size-14">
+          —
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-lg font-semibold text-red-950 md:text-xl">Invalid</h3>
+          <p className="text-xs text-red-700/80">Spoilt / rejected ballots</p>
+          <div className="mt-2 h-3 overflow-hidden rounded-full bg-red-100">
+            <motion.div
+              className="h-full rounded-full bg-red-500"
+              initial={false}
+              animate={{ width: `${width}%` }}
+              transition={{ type: "spring", stiffness: 80, damping: 20 }}
+            />
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <LiveCounter value={votes} className="block text-3xl font-black tabular-nums leading-none text-red-700 md:text-4xl" />
+          <p className="mt-1 text-[11px] tabular-nums text-red-600">{share}% share</p>
+        </div>
+      </div>
+    </motion.article>
   );
 }

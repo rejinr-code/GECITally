@@ -231,7 +231,9 @@ export function CountForm({
                 {roundCap > 0 ? ` / ${formatNumber(roundCap)}` : ""}
               </span>
               {invalidCount > 0 ? (
-                <span className="ml-2 text-xs">({formatNumber(invalidCount)} invalid)</span>
+                <span className="ml-2 text-xs font-medium text-red-700">
+                  ({formatNumber(invalidCount)} invalid)
+                </span>
               ) : null}
             </p>
             {lastId ? <p className="text-xs text-muted-foreground">Last vote: {lastVoteLabel}</p> : null}
@@ -291,7 +293,7 @@ export function CountForm({
                 </li>
               );
             })}
-            <li className="flex justify-between gap-4">
+            <li className="flex justify-between gap-4 text-red-700">
               <span>Invalid</span>
               <span className="font-semibold tabular-nums">{formatNumber(invalidCount)}</span>
             </li>
@@ -342,28 +344,33 @@ function BallotCard({
     <article
       className={cn(
         "min-w-[16.5rem] flex-1 rounded-2xl border bg-white p-4 shadow-sm transition",
-        tone === "invalid" && "border-dashed bg-slate-50",
+        tone === "invalid" && "border-red-300 bg-red-50",
         isPending && "border-amber-400 ring-2 ring-amber-200",
-        isLast && !isPending && "border-emerald-500 ring-2 ring-emerald-200",
+        isLast && !isPending && tone === "invalid" && "border-red-500 ring-2 ring-red-200",
+        isLast && !isPending && tone !== "invalid" && "border-emerald-500 ring-2 ring-emerald-200",
       )}
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-semibold leading-tight">{title}</h3>
+          <h3 className={cn("text-lg font-semibold leading-tight", tone === "invalid" && "text-red-900")}>
+            {title}
+          </h3>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {badge ? (
               <Badge variant="outline" className="font-semibold tracking-wide">
                 {badge}
               </Badge>
             ) : null}
-            <span className="text-xs text-muted-foreground">{subtitle}</span>
+            <span className={cn("text-xs", tone === "invalid" ? "text-red-700/80" : "text-muted-foreground")}>
+              {subtitle}
+            </span>
           </div>
         </div>
         <div className="text-right">
           <p
             className={cn(
               "text-3xl font-semibold tabular-nums",
-              tone === "invalid" ? "text-slate-700" : "text-emerald-800",
+              tone === "invalid" ? "text-red-700" : "text-emerald-800",
             )}
           >
             {formatNumber(count)}
@@ -374,7 +381,13 @@ function BallotCard({
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Button type="button" size="lg" variant={isPending ? "outline" : "default"} disabled={!canCount} onClick={onAdd}>
+        <Button
+          type="button"
+          size="lg"
+          variant={isPending ? "outline" : tone === "invalid" ? "destructive" : "default"}
+          disabled={!canCount}
+          onClick={onAdd}
+        >
           Add vote
         </Button>
         <Button

@@ -173,7 +173,7 @@ export function ResultsBoard() {
           <div className="hidden items-center gap-5 sm:flex">
             <Stat label="Polled" value={current?.votes_polled ?? election.total_votes_polled} />
             <Stat label="Verified" value={totalVotes} />
-            {totalInvalid > 0 ? <Stat label="Invalid" value={totalInvalid} /> : null}
+            <Stat label="Invalid" value={current?.invalid_votes ?? totalInvalid} tone="invalid" />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button asChild size="sm" variant="outline">
@@ -286,11 +286,24 @@ export function ResultsBoard() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, tone }: { label: string; value: number; tone?: "invalid" }) {
   return (
     <div className="text-right">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">{label}</p>
-      <LiveCounter value={value} className="text-lg font-semibold tabular-nums leading-none text-emerald-950 md:text-xl" />
+      <p
+        className={cn(
+          "text-[10px] uppercase tracking-[0.18em]",
+          tone === "invalid" ? "text-red-600" : "text-emerald-600",
+        )}
+      >
+        {label}
+      </p>
+      <LiveCounter
+        value={value}
+        className={cn(
+          "text-lg font-semibold tabular-nums leading-none md:text-xl",
+          tone === "invalid" ? "text-red-700" : "text-emerald-950",
+        )}
+      />
       <p className="sr-only">{formatNumber(value)}</p>
     </div>
   );

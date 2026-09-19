@@ -36,7 +36,7 @@ export function RoundCard({
             <span className="font-medium">{entry.votes}</span>
           </div>
         ))}
-        <div className="flex justify-between">
+        <div className="flex justify-between text-red-700">
           <span>Invalid</span>
           <span className="font-medium">{invalid}</span>
         </div>

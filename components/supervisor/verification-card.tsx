@@ -55,7 +55,7 @@ export function VerificationCard({ round }: { round: PendingRound }) {
               <span className="font-semibold">{entry.votes}</span>
             </li>
           ))}
-          <li className="flex justify-between gap-4">
+          <li className="flex justify-between gap-4 text-red-700">
             <span>Invalid</span>
             <span className="font-semibold">{invalid}</span>
           </li>
