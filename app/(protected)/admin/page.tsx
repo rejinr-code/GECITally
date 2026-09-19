@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminConsole } from "@/components/admin/admin-console";
 import type { Candidate, Election, Panel, Post, Profile } from "@/lib/types";
+import { liveDisplaySettings } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +35,14 @@ export default async function AdminPage() {
     : { data: [] as Candidate[] };
 
   const { error: candidateClassError } = await admin.from("candidates").select("branch, year").limit(1);
+  const { error: liveDisplayError } = await admin
+    .from("elections")
+    .select("results_rotate_seconds, results_require_verification")
+    .limit(1);
 
   const schemaNeedsUpdate = Boolean(panelsResult.error);
   const schemaNeedsCandidateClass = Boolean(candidateClassError);
+  const schemaNeedsLiveDisplay = Boolean(liveDisplayError);
   const panels = schemaNeedsUpdate ? [] : ((panelsResult.data ?? []) as Panel[]);
 
   const postsWithCandidates = posts.map((post) => ({
@@ -61,7 +67,14 @@ export default async function AdminPage() {
         </p>
       </div>
       <AdminConsole
-        election={(election as Election | null) ?? null}
+        election={
+          election
+            ? ({
+                ...election,
+                ...liveDisplaySettings(election as Election),
+              } as Election)
+            : null
+        }
         electionId={electionId}
         panels={panels}
         posts={postsWithCandidates}
@@ -69,6 +82,7 @@ export default async function AdminPage() {
         countingStarted={election?.state !== "setup"}
         schemaNeedsUpdate={schemaNeedsUpdate}
         schemaNeedsCandidateClass={schemaNeedsCandidateClass}
+        schemaNeedsLiveDisplay={schemaNeedsLiveDisplay}
       />
     </div>
   );

@@ -40,7 +40,8 @@ In the Supabase SQL editor, run in order:
 2. `supabase/migrations/0002_panels_and_post_votes.sql`
 3. `supabase/migrations/0003_candidate_branch_semester.sql`
 4. `supabase/migrations/0004_candidate_year.sql`
-5. `supabase/seed.sql` (optional starter posts)
+5. `supabase/migrations/0005_live_display_settings.sql`
+6. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -70,7 +71,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Path | Role | Purpose |
 |---|---|---|
-| `/admin` | admin | Panels, posts, candidates, staff, count limit, election state |
+| `/admin` | admin | Panels, posts, candidates, staff, count limit, live display, election state |
 | `/staff` | staff | Enter per-candidate counts for assigned posts |
 | `/supervisor` | supervisor | Verify or reject submitted rounds |
 | `/results` | public | Live animated results (no login) |
@@ -79,6 +80,6 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - A round is all candidate counts for one post, saved in a single Postgres transaction.
 - Duplicate submits are blocked in the UI (disabled button + ref guard) and in the database (`unique (post_id, staff_id, round_number)`).
-- Verified rounds become part of the live tally.
+- Verified rounds become part of the live tally. Admin can instead show pending rounds on the public board immediately after staff submit.
 - When verified rounds for a post reach `count_limit`, those totals are finalised and immutable.
 - `count_limit` can be raised mid-election for remaining ballots.

@@ -9,11 +9,11 @@ import { LiveCounter } from "@/components/results/live-counter";
 import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber, percent, shortPostName } from "@/lib/utils";
+import { formatDate, formatNumber, liveDisplaySettings, percent, shortPostName } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const BIG_SCREEN_KEY = "geci-big-screen";
-const POST_ROTATE_MS = 12000;
+const DEFAULT_ROTATE_MS = 12000;
 const bigScreenListeners = new Set<() => void>();
 
 function emitBigScreen() {
@@ -73,15 +73,17 @@ export function ResultsBoard() {
   const declaredCount = posts.filter(
     (post) => post.is_finalised || election?.state === "finalised",
   ).length;
+  const display = liveDisplaySettings(election);
+  const rotateMs = display.results_rotate_seconds * 1000;
 
   useEffect(() => {
     if (posts.length <= 1) return;
     const timer = window.setInterval(() => {
       setPostIndex((index) => (index + 1) % posts.length);
       setCycle((value) => value + 1);
-    }, POST_ROTATE_MS);
+    }, rotateMs);
     return () => window.clearInterval(timer);
-  }, [posts.length, cycle]);
+  }, [posts.length, cycle, rotateMs]);
 
   function showPost(index: number) {
     setPostIndex(index);
@@ -257,6 +259,7 @@ export function ResultsBoard() {
                   flashKey={flashKey}
                   electionState={election.state}
                   serial={safeIndex + 1}
+                  requireVerification={display.results_require_verification}
                 />
               </motion.div>
             </AnimatePresence>
@@ -271,7 +274,7 @@ export function ResultsBoard() {
           <div key={cycle} className="h-0.5 w-16 shrink-0 overflow-hidden rounded-full bg-emerald-100">
             <div
               className="h-full bg-emerald-600"
-              style={{ animation: `resultsRotate ${POST_ROTATE_MS}ms linear` }}
+              style={{ animation: `resultsRotate ${rotateMs || DEFAULT_ROTATE_MS}ms linear` }}
             />
           </div>
         ) : null}

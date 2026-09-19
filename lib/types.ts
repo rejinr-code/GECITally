@@ -16,6 +16,8 @@ export type Election = {
   total_votes_polled: number;
   count_limit: number;
   state: ElectionState;
+  results_rotate_seconds: number;
+  results_require_verification: boolean;
   created_at: string;
 };
 
@@ -106,6 +108,8 @@ export type LiveResults = {
     total_votes_polled: number;
     count_limit: number;
     state: ElectionState;
+    results_rotate_seconds: number;
+    results_require_verification: boolean;
   } | null;
   posts: LivePost[];
 };

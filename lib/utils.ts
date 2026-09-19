@@ -65,3 +65,15 @@ export function parsePositiveInt(value: unknown, fallback = 0) {
   const n = typeof value === "number" ? value : Number.parseInt(String(value), 10);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
+
+export function liveDisplaySettings(election: {
+  results_rotate_seconds?: number | null;
+  results_require_verification?: boolean | null;
+} | null | undefined) {
+  const rotate = election?.results_rotate_seconds;
+  return {
+    results_rotate_seconds:
+      typeof rotate === "number" && rotate >= 5 && rotate <= 120 ? rotate : 12,
+    results_require_verification: election?.results_require_verification !== false,
+  };
+}

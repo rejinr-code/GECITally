@@ -25,12 +25,14 @@ export function PostSection({
   flashKey,
   electionState,
   serial,
+  requireVerification,
 }: {
   post: LivePost;
   countLimit: number;
   flashKey: number;
   electionState: ElectionState;
   serial: number;
+  requireVerification: boolean;
 }) {
   const ranked = [...post.candidates].sort((a, b) => b.votes - a.votes);
   const maxVotes = ranked[0]?.votes ?? 0;
@@ -84,7 +86,9 @@ export function PostSection({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">Verified votes</p>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">
+            {requireVerification ? "Verified votes" : "Live votes"}
+          </p>
           <LiveCounter value={post.total_verified_votes} className="text-4xl font-black tabular-nums text-emerald-950" />
         </div>
       </div>
@@ -166,7 +170,7 @@ export function PostSection({
       </div>
 
       <p className="mt-2 shrink-0 text-xs text-muted-foreground">
-        {formatNumber(post.total_verified_votes)} verified
+        {formatNumber(post.total_verified_votes)} {requireVerification ? "verified" : "counted"}
         {votesPolled > 0
           ? ` · ${percent(post.total_verified_votes, votesPolled)}% of ${formatNumber(votesPolled)} polled`
           : ""}

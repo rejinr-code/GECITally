@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { resetElectionCounts, setElectionState, upsertElection } from "@/lib/actions/admin";
+import { resetElectionCounts, setElectionState, setLiveDisplaySettings, upsertElection } from "@/lib/actions/admin";
 import type { Election, ElectionState } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
+import { liveDisplaySettings } from "@/lib/utils";
 
 const STATES: ElectionState[] = ["setup", "counting", "finalised"];
 
@@ -31,13 +32,19 @@ const STATE_COPY: Record<ElectionState, { title: string; detail: string }> = {
 export function ElectionSettings({ election }: { election: Election | null }) {
   const { isSubmitting, run } = useAntiDuplicate();
   const { isSubmitting: stateBusy, run: runState } = useAntiDuplicate();
+  const { isSubmitting: displayBusy, run: runDisplay } = useAntiDuplicate();
   const [resetting, setResetting] = useState(false);
   const [pendingState, setPendingState] = useState<ElectionState | null>(null);
+  const [displayOpen, setDisplayOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const display = liveDisplaySettings(election);
+  const [rotateSeconds, setRotateSeconds] = useState(String(display.results_rotate_seconds));
+  const [requireVerification, setRequireVerification] = useState(display.results_require_verification);
 
   function openStateDialog(state: ElectionState) {
     if (!election || election.state === state) return;
+    setDisplayOpen(false);
     setPassword("");
     setPasswordError(null);
     setPendingState(state);
@@ -46,6 +53,21 @@ export function ElectionSettings({ election }: { election: Election | null }) {
   function closeStateDialog() {
     if (stateBusy) return;
     setPendingState(null);
+    setPassword("");
+    setPasswordError(null);
+  }
+
+  function openDisplayDialog() {
+    if (!election) return;
+    setPendingState(null);
+    setPassword("");
+    setPasswordError(null);
+    window.setTimeout(() => setDisplayOpen(true), 0);
+  }
+
+  function closeDisplayDialog() {
+    if (displayBusy) return;
+    setDisplayOpen(false);
     setPassword("");
     setPasswordError(null);
   }
@@ -61,6 +83,23 @@ export function ElectionSettings({ election }: { election: Election | null }) {
       }
       toast.success(`Election is now ${pendingState}.`);
       setPendingState(null);
+      setPassword("");
+      setPasswordError(null);
+    });
+  }
+
+  function confirmDisplay() {
+    if (!election) return;
+    const seconds = Number.parseInt(rotateSeconds, 10);
+    void runDisplay(async () => {
+      const result = await setLiveDisplaySettings(election.id, seconds, requireVerification, password);
+      if (result.error) {
+        setPasswordError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Live results display updated.");
+      setDisplayOpen(false);
       setPassword("");
       setPasswordError(null);
     });
@@ -184,6 +223,73 @@ export function ElectionSettings({ election }: { election: Election | null }) {
         </CardContent>
       </Card>
 
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Live results display</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            These settings change the public hall board. Saving them requires your admin password.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="results_rotate_seconds">Post rotate delay (seconds)</Label>
+              <Input
+                id="results_rotate_seconds"
+                type="number"
+                min={5}
+                max={120}
+                value={rotateSeconds}
+                onChange={(event) => setRotateSeconds(event.target.value)}
+                disabled={!election}
+              />
+              <p className="text-xs text-muted-foreground">
+                How long each post stays on the live board before the next one. From 5 to 120 seconds.
+              </p>
+            </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">When to show vote totals</legend>
+              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                <input
+                  type="radio"
+                  name="results_display_mode"
+                  className="mt-1"
+                  checked={requireVerification}
+                  onChange={() => setRequireVerification(true)}
+                  disabled={!election}
+                />
+                <span>
+                  <span className="font-medium">After supervisor approval</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Public results only include verified rounds.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                <input
+                  type="radio"
+                  name="results_display_mode"
+                  className="mt-1"
+                  checked={!requireVerification}
+                  onChange={() => setRequireVerification(false)}
+                  disabled={!election}
+                />
+                <span>
+                  <span className="font-medium">Directly after staff submit</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Pending rounds appear immediately. Rejected rounds are removed.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+          </div>
+          <Button type="button" disabled={!election || displayBusy} onClick={openDisplayDialog}>
+            {displayBusy ? <Spinner /> : null}
+            Save live display
+          </Button>
+        </CardContent>
+      </Card>
+
       {pendingState ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
           <div
@@ -229,6 +335,58 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 <Button type="submit" className="capitalize" disabled={stateBusy || !password.trim()}>
                   {stateBusy ? <Spinner /> : null}
                   Confirm {pendingState}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      {displayOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="display-confirm-title"
+            className="w-full max-w-md rounded-xl border bg-white p-6 shadow-2xl"
+          >
+            <h2 id="display-confirm-title" className="text-lg font-semibold">
+              Update live results display?
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Posts will rotate every {rotateSeconds || "—"} seconds. Vote totals will show{" "}
+              {requireVerification ? "only after supervisor approval" : "directly after staff submit"}.
+              Enter your admin password, then confirm.
+            </p>
+            <form
+              className="mt-4 space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                confirmDisplay();
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="display-password">Admin password</Label>
+                <Input
+                  id="display-password"
+                  type="password"
+                  autoComplete="off"
+                  value={password}
+                  autoFocus
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setPasswordError(null);
+                  }}
+                  required
+                />
+              </div>
+              {passwordError ? <p className="text-sm text-red-700">{passwordError}</p> : null}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" disabled={displayBusy} onClick={closeDisplayDialog}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={displayBusy || !password.trim()}>
+                  {displayBusy ? <Spinner /> : null}
+                  Confirm display
                 </Button>
               </div>
             </form>

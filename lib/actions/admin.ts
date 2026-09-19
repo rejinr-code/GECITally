@@ -106,6 +106,43 @@ export async function setElectionState(electionId: string, state: ElectionState,
   }
 }
 
+export async function setLiveDisplaySettings(
+  electionId: string,
+  rotateSeconds: number,
+  requireVerification: boolean,
+  password: string,
+) {
+  try {
+    if (typeof password !== "string" || !password.trim()) {
+      return { error: "Enter your admin password to confirm." };
+    }
+    if (!Number.isInteger(rotateSeconds) || rotateSeconds < 5 || rotateSeconds > 120) {
+      return { error: "Rotate delay must be a whole number from 5 to 120 seconds." };
+    }
+    const confirmed = await confirmAdminPassword(password);
+    if ("error" in confirmed) return { error: confirmed.error };
+
+    const { error } = await confirmed.supabase
+      .from("elections")
+      .update({
+        results_rotate_seconds: rotateSeconds,
+        results_require_verification: requireVerification,
+      })
+      .eq("id", electionId);
+    if (error) {
+      if (error.message.includes("results_rotate_seconds") || error.message.includes("results_require_verification")) {
+        return { error: "Run supabase/migrations/0005_live_display_settings.sql in the Supabase SQL editor first." };
+      }
+      return { error: error.message };
+    }
+    revalidatePath("/admin");
+    revalidatePath("/results");
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not update live display settings." };
+  }
+}
+
 export async function savePost(formData: FormData) {
   try {
     const { supabase } = await requireAdmin();
