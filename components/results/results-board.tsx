@@ -7,9 +7,8 @@ import { PostSection } from "@/components/results/post-section";
 import { LiveCounter } from "@/components/results/live-counter";
 import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber, percent, postSerial } from "@/lib/utils";
+import { formatDate, formatNumber, percent, shortPostName } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const BIG_SCREEN_KEY = "geci-big-screen";
@@ -70,6 +69,9 @@ export function ResultsBoard() {
     return percent(verified, posts.length * election.count_limit);
   }, [election, posts]);
   const totalVotes = posts.reduce((sum, post) => sum + post.total_verified_votes, 0);
+  const declaredCount = posts.filter(
+    (post) => post.is_finalised || election?.state === "finalised",
+  ).length;
 
   useEffect(() => {
     if (posts.length <= 1) return;
@@ -105,31 +107,48 @@ export function ResultsBoard() {
     );
   }
 
+  const live = election.state === "counting";
+
   return (
     <div
       className={cn(
-        "flex h-dvh flex-col overflow-hidden bg-[radial-gradient(circle_at_top,_#d1fae5,_#f8fafc_42%)]",
+        "flex h-dvh flex-col overflow-hidden bg-[radial-gradient(ellipse_at_top,_#0f766e_0%,_#042f2e_38%,_#022c22_100%)] text-white",
         bigScreen && "big-screen",
       )}
     >
-      <header className="shrink-0 border-b border-emerald-900/10 bg-emerald-950 text-white">
+      <header className="shrink-0 border-b border-white/10 bg-black/30">
         <div className="flex items-center gap-3 px-3 py-2 md:px-4">
           <GeciMark className="size-10 md:size-11" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-[10px] font-black tracking-[0.22em]",
+                  live ? "bg-red-600 text-white" : "bg-amber-300 text-emerald-950",
+                )}
+              >
+                {live ? (
+                  <span
+                    className="size-1.5 rounded-full bg-white"
+                    style={{ animation: "livePulse 1.4s ease-out infinite" }}
+                  />
+                ) : null}
+                {live ? "LIVE" : "FINAL"}
+              </span>
               <p className="text-sm font-semibold leading-none">GECI Tally</p>
               <span className="hidden text-emerald-400 sm:inline">·</span>
-              <p className="truncate text-sm text-emerald-100">{election.name}</p>
-              <span className="hidden text-xs text-emerald-300 md:inline">
+              <p className="truncate text-sm text-emerald-50">{election.name}</p>
+              <span className="hidden text-xs text-emerald-200 md:inline">
                 {formatDate(election.date)}
               </span>
-              <Badge className="h-5 capitalize">{election.state}</Badge>
             </div>
             <div className="mt-1.5 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-emerald-900">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/40">
                 <div className="h-full rounded-full bg-emerald-400" style={{ width: `${progress}%` }} />
               </div>
-              <span className="text-[11px] tabular-nums text-emerald-200">{progress}%</span>
+              <span className="text-[11px] tabular-nums text-emerald-100">
+                {progress}% · {declaredCount}/{posts.length} declared
+              </span>
             </div>
           </div>
           <div className="hidden items-center gap-5 sm:flex">
@@ -148,69 +167,97 @@ export function ResultsBoard() {
         </div>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col px-3 py-3 md:px-5 md:py-4">
-        {current ? (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={current.id}
-              className="flex min-h-0 flex-1 flex-col"
-              initial={{ opacity: 0, x: 48 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -48 }}
-              transition={{ duration: 0.45, ease: "easeOut" }}
-            >
-              <PostSection
-                post={{
-                  ...current,
-                  votes_polled: current.votes_polled ?? election.total_votes_polled,
-                }}
-                countLimit={election.count_limit}
-                flashKey={flashKey}
-              />
-            </motion.div>
-          </AnimatePresence>
-        ) : (
-          <p className="m-auto text-muted-foreground">No posts configured yet.</p>
-        )}
-      </main>
+      <div className="flex min-h-0 flex-1">
+        {posts.length > 0 ? (
+          <nav className="flex w-[11.5rem] shrink-0 flex-col border-r border-white/10 bg-black/25 md:w-60">
+            <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-300">
+              Posts
+            </p>
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+              {posts.map((post, index) => {
+                const won =
+                  (post.is_finalised || election.state === "finalised") &&
+                  post.candidates.some((candidate) => candidate.votes > 0);
+                return (
+                  <button
+                    key={post.id}
+                    type="button"
+                    onClick={() => showPost(index)}
+                    className={cn(
+                      "mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition",
+                      index === safeIndex
+                        ? "bg-amber-300 text-emerald-950 shadow-[0_0_0_1px_rgba(251,191,36,0.6)]"
+                        : "text-emerald-50 hover:bg-white/10",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-6 shrink-0 items-center justify-center rounded text-[11px] font-black tabular-nums",
+                        index === safeIndex ? "bg-emerald-950 text-amber-300" : "bg-white/10",
+                      )}
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium leading-tight">
+                      {shortPostName(post.name)}
+                    </span>
+                    {won ? (
+                      <span
+                        className={cn(
+                          "size-1.5 shrink-0 rounded-full",
+                          index === safeIndex ? "bg-emerald-800" : "bg-amber-300",
+                        )}
+                      />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        ) : null}
 
-      {posts.length > 0 ? (
-        <footer className="shrink-0 border-t border-amber-200/10 bg-[#06281d] px-3 py-2 text-white md:px-4">
-          <div
-            key={cycle}
-            className="mb-2 h-0.5 overflow-hidden rounded-full bg-emerald-900/80"
-          >
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col p-2 md:p-3">
+          {current ? (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={current.id}
+                className="flex min-h-0 flex-1 flex-col"
+                initial={{ opacity: 0, x: 36 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -36 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              >
+                <PostSection
+                  post={{
+                    ...current,
+                    votes_polled: current.votes_polled ?? election.total_votes_polled,
+                  }}
+                  countLimit={election.count_limit}
+                  flashKey={flashKey}
+                  electionState={election.state}
+                  serial={safeIndex + 1}
+                />
+              </motion.div>
+            </AnimatePresence>
+          ) : (
+            <p className="m-auto text-emerald-100">No posts configured yet.</p>
+          )}
+        </main>
+      </div>
+
+      <footer className="flex h-9 shrink-0 items-center gap-3 overflow-hidden border-t border-amber-300/20 bg-black/50 px-3">
+        {posts.length > 0 ? (
+          <div key={cycle} className="h-0.5 w-16 shrink-0 overflow-hidden rounded-full bg-emerald-900/80">
             <div
               className="h-full bg-amber-300"
               style={{ animation: `resultsRotate ${POST_ROTATE_MS}ms linear` }}
             />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <MulearnCredit light compact />
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
-              {posts.map((post, index) => (
-                <button
-                  key={post.id}
-                  type="button"
-                  onClick={() => showPost(index)}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-xs transition",
-                    index === safeIndex
-                      ? "bg-white text-emerald-950"
-                      : "bg-emerald-900/80 text-emerald-100 hover:bg-emerald-800",
-                  )}
-                >
-                  {postSerial(post, index)}. {post.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </footer>
-      ) : (
-        <footer className="shrink-0 border-t border-amber-200/10 bg-[#06281d] px-3 py-2 md:px-4">
+        ) : null}
+        <div className="min-w-0 flex-1 overflow-hidden [&_img]:h-5 [&_>div]:max-w-full [&_>div]:gap-2 [&_>div]:px-2 [&_>div]:py-0">
           <MulearnCredit light compact />
-        </footer>
-      )}
+        </div>
+      </footer>
     </div>
   );
 }
@@ -218,7 +265,7 @@ export function ResultsBoard() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-right">
-      <p className="text-[10px] uppercase tracking-wide text-emerald-200">{label}</p>
+      <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-200">{label}</p>
       <LiveCounter value={value} className="text-lg font-semibold tabular-nums leading-none md:text-xl" />
       <p className="sr-only">{formatNumber(value)}</p>
     </div>

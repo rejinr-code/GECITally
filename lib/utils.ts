@@ -32,6 +32,23 @@ export function postSerial(post: { display_order?: number | null }, index: numbe
   return post.display_order && post.display_order > 0 ? post.display_order : index + 1;
 }
 
+export function shortPostName(name: string) {
+  return name
+    .replace(/^UG Representative - /, "UG · ")
+    .replace("Editor of the College Magazine", "Magazine Editor")
+    .replace("University Union Councillors", "Union Councillors")
+    .replace("Women Representatives", "Women Reps")
+    .replace("Vice-Chairperson", "Vice-Chair")
+    .replace("General Secretary", "Gen. Secretary")
+    .replace("Arts Club Secretary", "Arts Secretary")
+    .replace("Computer Science & Engineering", "CSE")
+    .replace("Electrical & Electronics Engineering", "EEE")
+    .replace("Electronics & Communication Engineering", "ECE")
+    .replace("Information Technology", "IT")
+    .replace("Robotics & AI", "RAI")
+    .replace("Mechanical Engineering", "ME");
+}
+
 export function percent(part: number, total: number) {
   if (total <= 0) return 0;
   return Math.round((part / total) * 1000) / 10;

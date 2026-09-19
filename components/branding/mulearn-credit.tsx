@@ -57,7 +57,7 @@ export function MulearnCredit({
         "inline-flex max-w-full items-center rounded-2xl border",
         compact ? "gap-2.5 px-2.5 py-1.5" : "gap-3.5 px-3.5 py-2.5",
         light
-          ? "shrink-0 border-amber-300/25 bg-gradient-to-r from-white/12 to-transparent"
+          ? "border-amber-300/25 bg-gradient-to-r from-white/12 to-transparent"
           : "border-emerald-200/90 bg-white shadow-[0_10px_28px_-18px_rgba(4,120,87,0.55)]",
       )}
     >
