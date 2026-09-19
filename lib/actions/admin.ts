@@ -110,6 +110,7 @@ export async function setLiveDisplaySettings(
   electionId: string,
   rotateSeconds: number,
   requireVerification: boolean,
+  countingRequireVerification: boolean,
   password: string,
 ) {
   try {
@@ -127,16 +128,26 @@ export async function setLiveDisplaySettings(
       .update({
         results_rotate_seconds: rotateSeconds,
         results_require_verification: requireVerification,
+        counting_require_verification: countingRequireVerification,
       })
       .eq("id", electionId);
     if (error) {
-      if (error.message.includes("results_rotate_seconds") || error.message.includes("results_require_verification")) {
-        return { error: "Run supabase/migrations/0005_live_display_settings.sql in the Supabase SQL editor first." };
+      if (
+        error.message.includes("results_rotate_seconds") ||
+        error.message.includes("results_require_verification") ||
+        error.message.includes("counting_require_verification")
+      ) {
+        return {
+          error:
+            "Run supabase/migrations/0005_live_display_settings.sql and 0006_counting_without_supervisor.sql in the Supabase SQL editor first.",
+        };
       }
       return { error: error.message };
     }
     revalidatePath("/admin");
     revalidatePath("/results");
+    revalidatePath("/staff");
+    revalidatePath("/supervisor");
     return { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not update live display settings." };

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { percent } from "@/lib/utils";
+import { liveDisplaySettings, percent } from "@/lib/utils";
 
 type AssignedPost = { id: string; name: string; seats: number };
 
@@ -29,6 +29,8 @@ export default async function StaffHomePage() {
   const { data: posts } = postIds.length
     ? await supabase.from("posts").select("id, name, seats").in("id", postIds)
     : { data: [] as AssignedPost[] };
+
+  const requireSupervisor = liveDisplaySettings(election).counting_require_verification;
 
   const { data: rounds } = postIds.length
     ? await supabase
@@ -63,7 +65,9 @@ export default async function StaffHomePage() {
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between gap-2">
                       {post.name}
-                      {pending && <Badge variant="warning">Awaiting verification</Badge>}
+                      {requireSupervisor && pending && (
+                        <Badge variant="warning">Awaiting verification</Badge>
+                      )}
                       {rejected && !pending && <Badge variant="destructive">Rejected</Badge>}
                     </CardTitle>
                   </CardHeader>

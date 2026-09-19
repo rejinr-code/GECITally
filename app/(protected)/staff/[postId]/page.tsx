@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CountForm } from "@/components/counting/count-form";
 import { RoundCard } from "@/components/counting/round-card";
 import type { Candidate, CountRound } from "@/lib/types";
+import { liveDisplaySettings } from "@/lib/utils";
 
 export default async function StaffPostPage({
   params,
@@ -58,6 +59,7 @@ export default async function StaffPostPage({
     Math.max(0, ...(rounds ?? []).map((round) => round.round_number), 0) + 1;
 
   const candidateNames = new Map((candidates ?? []).map((candidate) => [candidate.id, candidate.name]));
+  const requireSupervisor = liveDisplaySettings(election).counting_require_verification;
 
   return (
     <div className="space-y-6">
@@ -79,6 +81,7 @@ export default async function StaffPostPage({
         rejectedRound={rejected as CountRound | null}
         countingOpen={election?.state === "counting"}
         limitReached={verifiedCount >= (election?.count_limit ?? 0)}
+        requireSupervisor={requireSupervisor}
       />
       <div className="grid gap-4 md:grid-cols-2">
         {(rounds ?? []).map((round) => (

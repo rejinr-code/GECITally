@@ -69,11 +69,13 @@ export function parsePositiveInt(value: unknown, fallback = 0) {
 export function liveDisplaySettings(election: {
   results_rotate_seconds?: number | null;
   results_require_verification?: boolean | null;
+  counting_require_verification?: boolean | null;
 } | null | undefined) {
   const rotate = election?.results_rotate_seconds;
   return {
     results_rotate_seconds:
       typeof rotate === "number" && rotate >= 5 && rotate <= 120 ? rotate : 12,
     results_require_verification: election?.results_require_verification !== false,
+    counting_require_verification: election?.counting_require_verification !== false,
   };
 }

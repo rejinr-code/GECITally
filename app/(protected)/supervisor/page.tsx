@@ -3,7 +3,7 @@ import { VerificationCard } from "@/components/supervisor/verification-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { Candidate, CountEntry, CountRound, PendingRound, Post, Profile } from "@/lib/types";
-import { percent } from "@/lib/utils";
+import { liveDisplaySettings, percent } from "@/lib/utils";
 
 export default async function SupervisorPage() {
   const supabase = await createClient();
@@ -50,6 +50,8 @@ export default async function SupervisorPage() {
   const staffMap = new Map((staffProfiles ?? []).map((person) => [person.id, person]));
   const candidateMap = new Map((candidates ?? []).map((candidate) => [candidate.id, candidate]));
 
+  const requireSupervisor = liveDisplaySettings(election).counting_require_verification;
+
   const queue: PendingRound[] = ((pendingRounds ?? []) as CountRound[]).flatMap((round) => {
     const post = postMap.get(round.post_id);
     const staff = staffMap.get(round.staff_id);
@@ -77,6 +79,12 @@ export default async function SupervisorPage() {
         <p className="mt-1 text-muted-foreground">
           {election ? `${election.name} · limit ${election.count_limit} rounds per post` : "No election configured."}
         </p>
+        {election && !requireSupervisor ? (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            Counting is set to proceed without supervisor approval. New rounds are accepted on submit.
+            Any rounds already in this queue still need a decision.
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

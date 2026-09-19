@@ -29,6 +29,7 @@ type Props = {
   rejectedRound: CountRound | null;
   countingOpen: boolean;
   limitReached: boolean;
+  requireSupervisor: boolean;
 };
 
 function emptyTally(candidates: Candidate[]) {
@@ -44,6 +45,7 @@ export function CountForm({
   rejectedRound,
   countingOpen,
   limitReached,
+  requireSupervisor,
 }: Props) {
   const [votes, setVotes] = useState<Record<string, number>>(() => emptyTally(candidates));
   const [lastId, setLastId] = useState<string | null>(null);
@@ -57,7 +59,8 @@ export function CountForm({
     [candidates, votes],
   );
   const total = rows.reduce((sum, row) => sum + row.votes, 0);
-  const blocked = Boolean(pendingRound) || !countingOpen || (limitReached && !rejectedRound);
+  const waitingOnSupervisor = requireSupervisor && Boolean(pendingRound);
+  const blocked = waitingOnSupervisor || !countingOpen || (limitReached && !rejectedRound);
   const canCount = !blocked && !isSubmitting;
 
   function requestAdd(candidateId: string) {
@@ -97,7 +100,11 @@ export function CountForm({
         toast.error(result.error);
         return;
       }
-      toast.success(`Round ${roundNumber} submitted for verification.`);
+      toast.success(
+        requireSupervisor
+          ? `Round ${roundNumber} submitted for verification.`
+          : `Round ${roundNumber} accepted. You can start the next round.`,
+      );
       setSubmitOpen(false);
       setPendingCandidateId(null);
       setVotes(emptyTally(candidates));
@@ -114,8 +121,10 @@ export function CountForm({
             Add vote on a candidate, then Confirm on the same card. Count goes up by one. Do not type numbers.
           </p>
         </div>
-        {pendingRound && <Badge variant="warning">Awaiting supervisor verification</Badge>}
-        {rejectedRound && !pendingRound && <Badge variant="destructive">Rejected — re-enter this round</Badge>}
+        {waitingOnSupervisor && <Badge variant="warning">Awaiting supervisor verification</Badge>}
+        {rejectedRound && !waitingOnSupervisor && (
+          <Badge variant="destructive">Rejected — re-enter this round</Badge>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {rejectedRound?.remarks && (
@@ -236,7 +245,9 @@ export function CountForm({
               Round {roundNumber} — {postName}
             </DialogTitle>
             <DialogDescription>
-              Confirm these sequential totals. This round will wait for supervisor verification.
+              {requireSupervisor
+                ? "Confirm these sequential totals. This round will wait for supervisor verification."
+                : "Confirm these sequential totals. This round will be accepted immediately."}
             </DialogDescription>
           </DialogHeader>
           <ul className="space-y-2 text-sm">

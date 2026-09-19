@@ -41,6 +41,9 @@ export function ElectionSettings({ election }: { election: Election | null }) {
   const display = liveDisplaySettings(election);
   const [rotateSeconds, setRotateSeconds] = useState(String(display.results_rotate_seconds));
   const [requireVerification, setRequireVerification] = useState(display.results_require_verification);
+  const [countingRequireVerification, setCountingRequireVerification] = useState(
+    display.counting_require_verification,
+  );
 
   function openStateDialog(state: ElectionState) {
     if (!election || election.state === state) return;
@@ -92,13 +95,19 @@ export function ElectionSettings({ election }: { election: Election | null }) {
     if (!election) return;
     const seconds = Number.parseInt(rotateSeconds, 10);
     void runDisplay(async () => {
-      const result = await setLiveDisplaySettings(election.id, seconds, requireVerification, password);
+      const result = await setLiveDisplaySettings(
+        election.id,
+        seconds,
+        requireVerification,
+        countingRequireVerification,
+        password,
+      );
       if (result.error) {
         setPasswordError(result.error);
         toast.error(result.error);
         return;
       }
-      toast.success("Live results display updated.");
+      toast.success("Counting and live results settings updated.");
       setDisplayOpen(false);
       setPassword("");
       setPasswordError(null);
@@ -227,11 +236,12 @@ export function ElectionSettings({ election }: { election: Election | null }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Live results display</CardTitle>
+          <CardTitle>Counting and live results</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            These settings change the public hall board. Saving them requires your admin password.
+            These settings change how staff count and what the public hall board shows. Saving them
+            requires your admin password.
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -250,7 +260,44 @@ export function ElectionSettings({ election }: { election: Election | null }) {
               </p>
             </div>
             <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Proceed counting</legend>
+              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                <input
+                  type="radio"
+                  name="counting_approval_mode"
+                  className="mt-1"
+                  checked={countingRequireVerification}
+                  onChange={() => setCountingRequireVerification(true)}
+                  disabled={!election}
+                />
+                <span>
+                  <span className="font-medium">With supervisor approval</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Staff wait after each round until a supervisor verifies it.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                <input
+                  type="radio"
+                  name="counting_approval_mode"
+                  className="mt-1"
+                  checked={!countingRequireVerification}
+                  onChange={() => setCountingRequireVerification(false)}
+                  disabled={!election}
+                />
+                <span>
+                  <span className="font-medium">Without supervisor approval</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Each submitted round is accepted immediately so the next round can start.
+                    Rounds already waiting are accepted too.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+            <fieldset className="space-y-2 md:col-span-2">
               <legend className="text-sm font-medium">When to show vote totals</legend>
+              <div className="grid gap-2 md:grid-cols-2">
               <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
                 <input
                   type="radio"
@@ -283,11 +330,12 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                   </span>
                 </span>
               </label>
+              </div>
             </fieldset>
           </div>
           <Button type="button" disabled={!election || displayBusy} onClick={openDisplayDialog}>
             {displayBusy ? <Spinner /> : null}
-            Save live display
+            Save counting and display
           </Button>
         </CardContent>
       </Card>
@@ -353,10 +401,11 @@ export function ElectionSettings({ election }: { election: Election | null }) {
             className="w-full max-w-md rounded-xl border bg-white p-6 shadow-2xl"
           >
             <h2 id="display-confirm-title" className="text-lg font-semibold">
-              Update live results display?
+              Update counting and live results?
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Posts will rotate every {rotateSeconds || "—"} seconds. Vote totals will show{" "}
+              Counting will proceed {countingRequireVerification ? "with" : "without"} supervisor
+              approval. Posts will rotate every {rotateSeconds || "—"} seconds. Vote totals will show{" "}
               {requireVerification ? "only after supervisor approval" : "directly after staff submit"}.
               Enter your admin password, then confirm.
             </p>
@@ -390,7 +439,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 </Button>
                 <Button type="submit" disabled={displayBusy || !password.trim()}>
                   {displayBusy ? <Spinner /> : null}
-                  Confirm display
+                  Confirm
                 </Button>
               </div>
             </form>

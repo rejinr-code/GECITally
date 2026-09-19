@@ -39,10 +39,15 @@ export default async function AdminPage() {
     .from("elections")
     .select("results_rotate_seconds, results_require_verification")
     .limit(1);
+  const { error: countingModeError } = await admin
+    .from("elections")
+    .select("counting_require_verification")
+    .limit(1);
 
   const schemaNeedsUpdate = Boolean(panelsResult.error);
   const schemaNeedsCandidateClass = Boolean(candidateClassError);
   const schemaNeedsLiveDisplay = Boolean(liveDisplayError);
+  const schemaNeedsCountingMode = Boolean(countingModeError);
   const panels = schemaNeedsUpdate ? [] : ((panelsResult.data ?? []) as Panel[]);
 
   const postsWithCandidates = posts.map((post) => ({
@@ -83,6 +88,7 @@ export default async function AdminPage() {
         schemaNeedsUpdate={schemaNeedsUpdate}
         schemaNeedsCandidateClass={schemaNeedsCandidateClass}
         schemaNeedsLiveDisplay={schemaNeedsLiveDisplay}
+        schemaNeedsCountingMode={schemaNeedsCountingMode}
       />
     </div>
   );

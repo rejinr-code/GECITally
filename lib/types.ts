@@ -18,6 +18,7 @@ export type Election = {
   state: ElectionState;
   results_rotate_seconds: number;
   results_require_verification: boolean;
+  counting_require_verification: boolean;
   created_at: string;
 };
 

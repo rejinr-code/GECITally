@@ -41,7 +41,8 @@ In the Supabase SQL editor, run in order:
 3. `supabase/migrations/0003_candidate_branch_semester.sql`
 4. `supabase/migrations/0004_candidate_year.sql`
 5. `supabase/migrations/0005_live_display_settings.sql`
-6. `supabase/seed.sql` (optional starter posts)
+6. `supabase/migrations/0006_counting_without_supervisor.sql`
+7. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 

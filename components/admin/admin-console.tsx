@@ -20,6 +20,7 @@ export function AdminConsole({
   schemaNeedsUpdate,
   schemaNeedsCandidateClass,
   schemaNeedsLiveDisplay,
+  schemaNeedsCountingMode,
 }: {
   election: Election | null;
   electionId: string | null;
@@ -30,6 +31,7 @@ export function AdminConsole({
   schemaNeedsUpdate: boolean;
   schemaNeedsCandidateClass: boolean;
   schemaNeedsLiveDisplay: boolean;
+  schemaNeedsCountingMode: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -49,6 +51,12 @@ export function AdminConsole({
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           Run <code className="font-medium">supabase/migrations/0005_live_display_settings.sql</code> in
           the Supabase SQL editor to control results rotate delay and whether totals wait for supervisor approval.
+        </p>
+      )}
+      {schemaNeedsCountingMode && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Run <code className="font-medium">supabase/migrations/0006_counting_without_supervisor.sql</code> in
+          the Supabase SQL editor to let counting continue with or without supervisor approval.
         </p>
       )}
       <Tabs defaultValue="election">
