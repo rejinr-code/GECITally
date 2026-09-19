@@ -61,7 +61,7 @@ export async function upsertElection(formData: FormData) {
       return { error: "Election name and date are required." };
     }
     if (payload.count_limit < 1) {
-      return { error: "Count finalisation limit must be at least 1." };
+      return { error: "Ballots per round must be at least 1." };
     }
     if (payload.total_votes_polled < 0) {
       return { error: "Total votes polled cannot be negative." };

@@ -158,7 +158,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="count_limit">Count finalisation limit (N)</Label>
+              <Label htmlFor="count_limit">Ballots per round (N)</Label>
               <Input
                 id="count_limit"
                 name="count_limit"
@@ -167,7 +167,9 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 defaultValue={election?.count_limit ?? 8}
               />
               <p className="text-xs text-muted-foreground">
-                After N verified rounds for a post, those totals lock. Raise this mid-election for remaining ballots.
+                Each counting round has N ballots. Staff get a prompt when the round reaches N.
+                The last round may have fewer remaining ballots. A post locks when its votes polled
+                are fully counted.
               </p>
             </div>
             <Button type="submit" disabled={isSubmitting}>

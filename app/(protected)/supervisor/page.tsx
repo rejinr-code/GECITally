@@ -27,8 +27,13 @@ export default async function SupervisorPage() {
 
   const postIds = (posts ?? []).map((post) => post.id);
   const { data: verified } = postIds.length
-    ? await supabase.from("count_rounds").select("post_id, status").in("post_id", postIds).eq("status", "verified")
+    ? await supabase.from("count_rounds").select("id, post_id, status").in("post_id", postIds).eq("status", "verified")
     : { data: [] };
+
+  const verifiedRoundIds = (verified ?? []).map((round) => round.id);
+  const { data: verifiedEntries } = verifiedRoundIds.length
+    ? await supabase.from("count_entries").select("round_id, votes").in("round_id", verifiedRoundIds)
+    : { data: [] as Array<{ round_id: string; votes: number }> };
 
   const staffIds = [...new Set((pendingRounds ?? []).map((round) => round.staff_id))];
   const roundIds = (pendingRounds ?? []).map((round) => round.id);
@@ -77,7 +82,7 @@ export default async function SupervisorPage() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Supervisor verification</h1>
         <p className="mt-1 text-muted-foreground">
-          {election ? `${election.name} · limit ${election.count_limit} rounds per post` : "No election configured."}
+          {election ? `${election.name} · ${election.count_limit} ballots per round` : "No election configured."}
         </p>
         {election && !requireSupervisor ? (
           <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
@@ -89,18 +94,23 @@ export default async function SupervisorPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {(posts ?? []).map((post) => {
-          const count = (verified ?? []).filter((round) => round.post_id === post.id).length;
-          const limit = election?.count_limit ?? 1;
+          const postRoundIds = new Set(
+            (verified ?? []).filter((round) => round.post_id === post.id).map((round) => round.id),
+          );
+          const counted = (verifiedEntries ?? [])
+            .filter((entry) => postRoundIds.has(entry.round_id))
+            .reduce((sum, entry) => sum + entry.votes, 0);
+          const polled = post.votes_polled ?? 0;
           return (
             <Card key={post.id}>
               <CardHeader>
                 <CardTitle className="text-base">{post.name}</CardTitle>
               </CardHeader>
               <CardContent>
-                <Progress value={percent(count, limit)} />
+                <Progress value={polled > 0 ? percent(counted, polled) : 0} />
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {count}/{limit} verified
-                  {count >= limit ? " · finalised" : ""}
+                  {polled > 0 ? `${counted}/${polled} ballots counted` : `${counted} ballots counted`}
+                  {polled > 0 && counted >= polled ? " · finalised" : ""}
                 </p>
               </CardContent>
             </Card>

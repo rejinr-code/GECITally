@@ -42,7 +42,9 @@ In the Supabase SQL editor, run in order:
 4. `supabase/migrations/0004_candidate_year.sql`
 5. `supabase/migrations/0005_live_display_settings.sql`
 6. `supabase/migrations/0006_counting_without_supervisor.sql`
-7. `supabase/seed.sql` (optional starter posts)
+7. `supabase/migrations/0007_round_ballot_limit.sql`
+8. `supabase/migrations/0008_counting_rpc_only.sql`
+9. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -81,6 +83,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - A round is all candidate counts for one post, saved in a single Postgres transaction.
 - Duplicate submits are blocked in the UI (disabled button + ref guard) and in the database (`unique (post_id, staff_id, round_number)`).
+- Count rows are written only by `submit_count_round` / `review_count_round`. Staff cannot insert or self-verify rounds through the API.
 - Verified rounds become part of the live tally. Admin can instead show pending rounds on the public board immediately after staff submit.
-- When verified rounds for a post reach `count_limit`, those totals are finalised and immutable.
-- `count_limit` can be raised mid-election for remaining ballots.
+- When verified ballots for a post reach that post's votes polled, those totals are finalised and immutable.
+- `count_limit` is the number of ballots in each round. The last round may contain fewer.

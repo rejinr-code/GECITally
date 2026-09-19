@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { liveDisplaySettings, percent } from "@/lib/utils";
 
-type AssignedPost = { id: string; name: string; seats: number };
+type AssignedPost = { id: string; name: string; seats: number; votes_polled: number };
 
 export default async function StaffHomePage() {
   const supabase = await createClient();
@@ -27,7 +27,7 @@ export default async function StaffHomePage() {
 
   const postIds = (assignments ?? []).map((row) => row.post_id);
   const { data: posts } = postIds.length
-    ? await supabase.from("posts").select("id, name, seats").in("id", postIds)
+    ? await supabase.from("posts").select("id, name, seats, votes_polled").in("id", postIds)
     : { data: [] as AssignedPost[] };
 
   const requireSupervisor = liveDisplaySettings(election).counting_require_verification;
@@ -39,6 +39,11 @@ export default async function StaffHomePage() {
         .in("post_id", postIds)
         .eq("staff_id", user?.id ?? "")
     : { data: [] };
+
+  const roundIds = (rounds ?? []).map((round) => round.id);
+  const { data: entries } = roundIds.length
+    ? await supabase.from("count_entries").select("round_id, votes").in("round_id", roundIds)
+    : { data: [] as Array<{ round_id: string; votes: number }> };
 
   return (
     <div className="space-y-6">
@@ -58,7 +63,17 @@ export default async function StaffHomePage() {
             const postRounds = (rounds ?? []).filter((round) => round.post_id === post.id);
             const pending = postRounds.find((round) => round.status === "pending_verification");
             const rejected = postRounds.find((round) => round.status === "rejected");
-            const verified = postRounds.filter((round) => round.status === "verified").length;
+            const counted = postRounds
+              .filter((round) => round.status === "verified" || round.status === "pending_verification")
+              .reduce((sum, round) => {
+                return (
+                  sum +
+                  (entries ?? [])
+                    .filter((entry) => entry.round_id === round.id)
+                    .reduce((inner, entry) => inner + entry.votes, 0)
+                );
+              }, 0);
+            const polled = post.votes_polled ?? 0;
             return (
               <Link key={post.id} href={`/staff/${post.id}`}>
                 <Card className="h-full transition hover:border-primary/40 hover:shadow-md">
@@ -73,11 +88,14 @@ export default async function StaffHomePage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      {post.seats} seat{post.seats > 1 ? "s" : ""}
+                      {post.seats} seat{post.seats > 1 ? "s" : ""} · {election?.count_limit ?? 0}{" "}
+                      ballots per round
                     </p>
-                    <Progress value={percent(verified, election?.count_limit ?? 1)} />
+                    <Progress value={polled > 0 ? percent(counted, polled) : 0} />
                     <p className="text-xs text-muted-foreground">
-                      {verified}/{election?.count_limit ?? 0} verified rounds
+                      {polled > 0
+                        ? `${counted}/${polled} ballots counted`
+                        : `${counted} ballots counted`}
                     </p>
                   </CardContent>
                 </Card>

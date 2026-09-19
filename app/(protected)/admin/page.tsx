@@ -1,11 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminConsole } from "@/components/admin/admin-console";
+import { requireRole } from "@/lib/auth/require-role";
 import type { Candidate, Election, Panel, Post, Profile } from "@/lib/types";
 import { liveDisplaySettings } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
+  await requireRole("admin");
   const admin = createAdminClient();
 
   const { data: election } = await admin

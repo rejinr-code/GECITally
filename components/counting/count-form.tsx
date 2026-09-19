@@ -28,8 +28,10 @@ type Props = {
   pendingRound: CountRound | null;
   rejectedRound: CountRound | null;
   countingOpen: boolean;
-  limitReached: boolean;
   requireSupervisor: boolean;
+  roundSize: number;
+  votesPolled: number;
+  countedBallots: number;
 };
 
 function emptyTally(candidates: Candidate[]) {
@@ -44,15 +46,24 @@ export function CountForm({
   pendingRound,
   rejectedRound,
   countingOpen,
-  limitReached,
   requireSupervisor,
+  roundSize,
+  votesPolled,
+  countedBallots,
 }: Props) {
   const [votes, setVotes] = useState<Record<string, number>>(() => emptyTally(candidates));
   const [lastId, setLastId] = useState<string | null>(null);
   const [pendingCandidateId, setPendingCandidateId] = useState<string | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [limitOpen, setLimitOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isSubmitting, run } = useAntiDuplicate();
+
+  const remaining = votesPolled > 0 ? Math.max(0, votesPolled - countedBallots) : null;
+  const roundCap = remaining === null ? roundSize : Math.min(roundSize, remaining);
+  const postComplete = remaining === 0;
+  const isLastRound = remaining !== null && remaining > 0 && remaining < roundSize;
+  const exactRoundRequired = remaining !== null;
 
   const rows = useMemo(
     () => candidates.map((candidate) => ({ candidate, votes: votes[candidate.id] ?? 0 })),
@@ -60,8 +71,14 @@ export function CountForm({
   );
   const total = rows.reduce((sum, row) => sum + row.votes, 0);
   const waitingOnSupervisor = requireSupervisor && Boolean(pendingRound);
-  const blocked = waitingOnSupervisor || !countingOpen || (limitReached && !rejectedRound);
-  const canCount = !blocked && !isSubmitting;
+  const blocked = waitingOnSupervisor || !countingOpen || postComplete;
+  const canCount = !blocked && !isSubmitting && total < roundCap;
+  const canSubmit =
+    !blocked &&
+    !isSubmitting &&
+    !pendingCandidateId &&
+    total > 0 &&
+    (exactRoundRequired ? total === roundCap : total <= roundSize);
 
   function requestAdd(candidateId: string) {
     if (!canCount) return;
@@ -75,13 +92,24 @@ export function CountForm({
 
   function confirmAdd(candidateId: string) {
     if (!canCount || pendingCandidateId !== candidateId) return;
+    const nextTotal = total + 1;
     setVotes((current) => ({ ...current, [candidateId]: (current[candidateId] ?? 0) + 1 }));
     setLastId(candidateId);
     setPendingCandidateId(null);
+    if (nextTotal >= roundCap && roundCap > 0) {
+      setLimitOpen(true);
+    }
   }
 
   function openSubmit() {
-    if (pendingCandidateId) return;
+    if (pendingCandidateId || !canSubmit) return;
+    setError(null);
+    setLimitOpen(false);
+    setSubmitOpen(true);
+  }
+
+  function openSubmitFromLimit() {
+    setLimitOpen(false);
     setError(null);
     setSubmitOpen(true);
   }
@@ -106,6 +134,7 @@ export function CountForm({
           : `Round ${roundNumber} accepted. You can start the next round.`,
       );
       setSubmitOpen(false);
+      setLimitOpen(false);
       setPendingCandidateId(null);
       setVotes(emptyTally(candidates));
       setLastId(null);
@@ -119,11 +148,16 @@ export function CountForm({
           <CardTitle>Round {roundNumber}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             Add vote on a candidate, then Confirm on the same card. Count goes up by one. Do not type numbers.
+            Each round is {formatNumber(roundSize)} ballots
+            {isLastRound ? `; this last round has ${formatNumber(roundCap)} remaining.` : "."}
           </p>
         </div>
         {waitingOnSupervisor && <Badge variant="warning">Awaiting supervisor verification</Badge>}
         {rejectedRound && !waitingOnSupervisor && (
           <Badge variant="destructive">Rejected — re-enter this round</Badge>
+        )}
+        {isLastRound && !waitingOnSupervisor && !rejectedRound && (
+          <Badge variant="outline">Last round</Badge>
         )}
       </CardHeader>
       <CardContent className="space-y-4">
@@ -137,9 +171,9 @@ export function CountForm({
             Counting is closed. Wait for the admin to open it.
           </p>
         )}
-        {limitReached && !rejectedRound && (
+        {postComplete && (
           <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            This post has reached the finalisation limit. Ask the admin to raise it for remaining ballots.
+            All {formatNumber(votesPolled)} ballots for this post have been counted.
           </p>
         )}
 
@@ -220,7 +254,11 @@ export function CountForm({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">
-              Ballots counted: <span className="font-semibold text-foreground">{formatNumber(total)}</span>
+              Ballots this round:{" "}
+              <span className="font-semibold text-foreground">
+                {formatNumber(total)}
+                {roundCap > 0 ? ` / ${formatNumber(roundCap)}` : ""}
+              </span>
             </p>
             {lastId ? (
               <p className="text-xs text-muted-foreground">
@@ -228,15 +266,35 @@ export function CountForm({
               </p>
             ) : null}
           </div>
-          <Button
-            type="button"
-            onClick={openSubmit}
-            disabled={blocked || isSubmitting || total === 0 || Boolean(pendingCandidateId)}
-          >
+          <Button type="button" onClick={openSubmit} disabled={!canSubmit}>
             Review and submit
           </Button>
         </div>
       </CardContent>
+
+      <Dialog open={limitOpen} onOpenChange={setLimitOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {isLastRound ? "Last round complete" : "Round count reached"}
+            </DialogTitle>
+            <DialogDescription>
+              {isLastRound
+                ? `This last round has ${formatNumber(total)} ballots, which is all that remain for this post.`
+                : `This round has reached the set count of ${formatNumber(roundSize)} ballots.`}{" "}
+              Review and submit this round.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setLimitOpen(false)}>
+              Close
+            </Button>
+            <Button type="button" onClick={openSubmitFromLimit}>
+              Review and submit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={submitOpen} onOpenChange={(value) => !isSubmitting && setSubmitOpen(value)}>
         <DialogContent>

@@ -62,13 +62,12 @@ export function ResultsBoard() {
   const safeIndex = posts.length ? postIndex % posts.length : 0;
   const current = posts[safeIndex];
   const progress = useMemo(() => {
-    if (!election || !posts.length) return 0;
-    const verified = posts.reduce(
-      (sum, post) => sum + Math.min(post.verified_rounds, election.count_limit),
-      0,
-    );
-    return percent(verified, posts.length * election.count_limit);
-  }, [election, posts]);
+    if (!posts.length) return 0;
+    const polled = posts.reduce((sum, post) => sum + (post.votes_polled || 0), 0);
+    if (polled <= 0) return 0;
+    const counted = posts.reduce((sum, post) => sum + post.total_verified_votes, 0);
+    return percent(counted, polled);
+  }, [posts]);
   const totalVotes = posts.reduce((sum, post) => sum + post.total_verified_votes, 0);
   const declaredCount = posts.filter(
     (post) => post.is_finalised || election?.state === "finalised",
@@ -255,7 +254,6 @@ export function ResultsBoard() {
                     ...current,
                     votes_polled: current.votes_polled ?? election.total_votes_polled,
                   }}
-                  countLimit={election.count_limit}
                   flashKey={flashKey}
                   electionState={election.state}
                   serial={safeIndex + 1}

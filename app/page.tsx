@@ -26,7 +26,7 @@ export default function HomePage() {
         </h1>
         <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
           Counting staff enter votes round by round. Supervisors verify every entry.
-          Results appear instantly for the hall, with a lock once the finalisation limit is reached.
+          Results appear instantly for the hall, and a post locks when its counted ballots are complete.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button asChild size="lg">
@@ -39,7 +39,7 @@ export default function HomePage() {
         <div className="mt-16 grid gap-4 md:grid-cols-3">
           {[
             ["Counting staff", "Assigned posts only. Confirm every round before it is saved."],
-            ["Supervisor", "Verify or reject submitted rounds. Progress is tracked against the count limit."],
+            ["Supervisor", "Verify or reject submitted rounds. Progress is tracked against ballots polled."],
             ["Public hall display", "Animated live totals, leading-candidate highlights, and projector mode."],
           ].map(([title, body]) => (
             <div key={title} className="rounded-2xl border bg-white/80 p-5 shadow-sm">

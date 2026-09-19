@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/auth/require-role";
 import { roleHome } from "@/lib/utils";
 
 export async function signIn(formData: FormData) {
@@ -30,7 +31,7 @@ export async function signIn(formData: FormData) {
     .eq("id", user?.id ?? "")
     .maybeSingle();
 
-  const destination = next.startsWith("/") ? next : roleHome(profile?.role);
+  const destination = safeNextPath(next, profile?.role) || roleHome(profile?.role);
   redirect(destination);
 }
 

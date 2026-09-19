@@ -21,14 +21,12 @@ const SLICE_COLORS = [
 
 export function PostSection({
   post,
-  countLimit,
   flashKey,
   electionState,
   serial,
   requireVerification,
 }: {
   post: LivePost;
-  countLimit: number;
   flashKey: number;
   electionState: ElectionState;
   serial: number;
@@ -81,8 +79,9 @@ export function PostSection({
             )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Verified rounds {post.verified_rounds}/{countLimit}
-            {post.pending_rounds ? ` · ${post.pending_rounds} pending` : ""}
+            {formatNumber(post.total_verified_votes)}
+            {votesPolled > 0 ? ` / ${formatNumber(votesPolled)} polled` : " counted"}
+            {post.pending_rounds ? ` · ${post.pending_rounds} pending rounds` : ""}
           </p>
         </div>
         <div className="text-right">
@@ -96,7 +95,7 @@ export function PostSection({
       <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-emerald-100">
         <div
           className="h-full rounded-full bg-emerald-500"
-          style={{ width: `${percent(post.verified_rounds, countLimit)}%` }}
+          style={{ width: `${votesPolled > 0 ? percent(post.total_verified_votes, votesPolled) : 0}%` }}
         />
       </div>
 

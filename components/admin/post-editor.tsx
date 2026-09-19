@@ -84,6 +84,9 @@ export function PostEditor({
                 placeholder="0"
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Total ballots for this post. The last counting round may be smaller than N. The post locks when this total is counted.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="display_order">Order</Label>
