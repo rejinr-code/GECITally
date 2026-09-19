@@ -45,7 +45,8 @@ In the Supabase SQL editor, run in order:
 7. `supabase/migrations/0007_round_ballot_limit.sql`
 8. `supabase/migrations/0008_counting_rpc_only.sql`
 9. `supabase/migrations/0009_results_skip_counting_approval.sql`
-10. `supabase/seed.sql` (optional starter posts)
+10. `supabase/migrations/0010_results_tick.sql`
+11. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
