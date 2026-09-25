@@ -1,5 +1,5 @@
 import type { CountEntry, CountRound } from "@/lib/types";
-import { cn, formatNumber, ordinalMark, resolveSeats } from "@/lib/utils";
+import { cn, formatNumber, marksToBallots, ordinalMark, resolveSeats } from "@/lib/utils";
 
 const STATUS: Record<CountRound["status"], string> = {
   pending_verification: "Pending",
@@ -13,12 +13,14 @@ export function RoundCard({
   invalidVotes,
   invalidSlotVotes,
   seats = 1,
+  highlightSeats = false,
 }: {
   round: CountRound;
   entries: Array<CountEntry & { candidate_name: string }>;
   invalidVotes?: number;
   invalidSlotVotes?: number[];
   seats?: number;
+  highlightSeats?: boolean;
 }) {
   const invalid = invalidVotes ?? round.invalid_votes ?? 0;
   const slots =
@@ -27,9 +29,14 @@ export function RoundCard({
       : round.invalid_slot_votes && round.invalid_slot_votes.length > 1
         ? round.invalid_slot_votes
         : null;
-  const total = entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
-  const ranked = [...entries].sort((a, b) => b.votes - a.votes);
-  const { elected, tied } = resolveSeats(ranked, seats, (entry) => entry.votes);
+  const totalMarks = entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
+  const totalBallots = marksToBallots(totalMarks, seats);
+  const ranked = [...entries].sort(
+    (a, b) => b.votes - a.votes || a.candidate_name.localeCompare(b.candidate_name, "en"),
+  );
+  const { elected, tied } = highlightSeats
+    ? resolveSeats(ranked, seats, (entry) => entry.votes)
+    : { elected: [] as typeof ranked, tied: [] as typeof ranked };
   const electedIds = new Set(elected.map((entry) => entry.candidate_id));
   const tiedIds = new Set(tied.map((entry) => entry.candidate_id));
 
@@ -49,7 +56,7 @@ export function RoundCard({
             {STATUS[round.status]}
           </span>
         </p>
-        <p className="text-sm font-semibold tabular-nums">{formatNumber(total)}</p>
+        <p className="text-sm font-semibold tabular-nums">{formatNumber(totalBallots)}</p>
       </div>
       <p className="mt-0.5 text-xs text-muted-foreground">
         {entries.map((entry, index) => (

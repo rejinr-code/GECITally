@@ -360,7 +360,10 @@ export async function deletePanel(panelId: string) {
 
 export async function createStaffAccount(formData: FormData) {
   try {
-    await requireAdmin();
+    const adminPassword = String(formData.get("admin_password") ?? "");
+    const confirmed = await confirmAdminPassword(adminPassword);
+    if ("error" in confirmed) return { error: confirmed.error };
+
     const fullName = String(formData.get("full_name") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
     const password = String(formData.get("password") ?? "");
@@ -408,17 +411,18 @@ export async function createStaffAccount(formData: FormData) {
   }
 }
 
-export async function updateStaffAssignments(staffId: string, postIds: string[]) {
+export async function updateStaffAssignments(staffId: string, postIds: string[], password: string) {
   try {
-    const { supabase } = await requireAdmin();
-    const { error: deleteError } = await supabase
+    const confirmed = await confirmAdminPassword(password);
+    if ("error" in confirmed) return { error: confirmed.error };
+    const { error: deleteError } = await confirmed.supabase
       .from("staff_assignments")
       .delete()
       .eq("staff_id", staffId);
     if (deleteError) return { error: deleteError.message };
 
     if (postIds.length) {
-      const { error } = await supabase.from("staff_assignments").insert(
+      const { error } = await confirmed.supabase.from("staff_assignments").insert(
         postIds.map((post_id) => ({ staff_id: staffId, post_id })),
       );
       if (error) return { error: error.message };
@@ -431,13 +435,14 @@ export async function updateStaffAssignments(staffId: string, postIds: string[])
   }
 }
 
-export async function updateProfileRole(profileId: string, role: UserRole) {
+export async function updateProfileRole(profileId: string, role: UserRole, password: string) {
   try {
     if (!["admin", "staff", "supervisor", "display"].includes(role)) {
       return { error: "Invalid role." };
     }
-    const { supabase } = await requireAdmin();
-    const { error } = await supabase.from("profiles").update({ role }).eq("id", profileId);
+    const confirmed = await confirmAdminPassword(password);
+    if ("error" in confirmed) return { error: confirmed.error };
+    const { error } = await confirmed.supabase.from("profiles").update({ role }).eq("id", profileId);
     if (error) return { error: error.message };
     revalidatePath("/admin");
     return { ok: true };
@@ -446,8 +451,10 @@ export async function updateProfileRole(profileId: string, role: UserRole) {
   }
 }
 
-export async function deleteStaffAccount(staffId: string) {
+export async function deleteStaffAccount(staffId: string, password: string) {
   try {
+    const confirmed = await confirmAdminPassword(password);
+    if ("error" in confirmed) return { error: confirmed.error };
     const { supabase, user } = await requireAdmin();
     if (staffId === user.id) {
       return { error: "You cannot delete your own account." };

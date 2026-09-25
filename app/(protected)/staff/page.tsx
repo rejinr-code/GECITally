@@ -3,7 +3,7 @@ import { StaffPostLink } from "@/components/counting/staff-post-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { liveDisplaySettings, marksToBallots, percent } from "@/lib/utils";
+import { countedBallotsFromRounds, liveDisplaySettings, percent } from "@/lib/utils";
 
 type AssignedPost = { id: string; name: string; seats: number; votes_polled: number };
 
@@ -32,7 +32,7 @@ export default async function StaffHomePage() {
 
   const requireSupervisor = liveDisplaySettings(election).counting_requires_supervisor;
 
-  const { data: rounds } = postIds.length
+  const { data: myRounds } = postIds.length
     ? await supabase
         .from("count_rounds")
         .select("*")
@@ -40,7 +40,11 @@ export default async function StaffHomePage() {
         .eq("staff_id", user?.id ?? "")
     : { data: [] };
 
-  const roundIds = (rounds ?? []).map((round) => round.id);
+  const { data: postRounds } = postIds.length
+    ? await supabase.from("count_rounds").select("*").in("post_id", postIds)
+    : { data: [] };
+
+  const roundIds = [...new Set([...(myRounds ?? []), ...(postRounds ?? [])].map((round) => round.id))];
   const { data: entries } = roundIds.length
     ? await supabase.from("count_entries").select("round_id, votes").in("round_id", roundIds)
     : { data: [] as Array<{ round_id: string; votes: number }> };
@@ -60,17 +64,14 @@ export default async function StaffHomePage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {(posts ?? []).map((post) => {
-            const postRounds = (rounds ?? []).filter((round) => round.post_id === post.id);
-            const pending = postRounds.find((round) => round.status === "pending_verification");
-            const rejected = postRounds.find((round) => round.status === "rejected");
-            const counted = postRounds
-              .filter((round) => round.status === "verified" || round.status === "pending_verification")
-              .reduce((sum, round) => {
-                const candidateVotes = (entries ?? [])
-                  .filter((entry) => entry.round_id === round.id)
-                  .reduce((inner, entry) => inner + entry.votes, 0);
-                return sum + marksToBallots(candidateVotes + (round.invalid_votes ?? 0), post.seats);
-              }, 0);
+            const postRoundsForStaff = (myRounds ?? []).filter((round) => round.post_id === post.id);
+            const pending = postRoundsForStaff.find((round) => round.status === "pending_verification");
+            const rejected = postRoundsForStaff.find((round) => round.status === "rejected");
+            const counted = countedBallotsFromRounds(
+              (postRounds ?? []).filter((round) => round.post_id === post.id),
+              entries ?? [],
+              post.seats,
+            );
             const polled = post.votes_polled ?? 0;
             return (
               <StaffPostLink key={post.id} href={`/staff/${post.id}`}>

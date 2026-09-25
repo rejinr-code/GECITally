@@ -142,6 +142,33 @@ export function liveCountedBallots(post: {
   );
 }
 
+export function postIsDeclared(post: { is_finalised?: boolean | null }) {
+  return Boolean(post.is_finalised);
+}
+
+export function countedBallotsFromRounds(
+  rounds: Array<{ id: string; status: string; invalid_votes?: number | null }>,
+  entries: Array<{ round_id: string; votes: number }>,
+  seats: number | null | undefined,
+) {
+  return rounds
+    .filter((round) => round.status === "verified" || round.status === "pending_verification")
+    .reduce((sum, round) => {
+      const candidateVotes = entries
+        .filter((entry) => entry.round_id === round.id)
+        .reduce((inner, entry) => inner + entry.votes, 0);
+      return sum + marksToBallots(candidateVotes + (round.invalid_votes ?? 0), seats);
+    }, 0);
+}
+
+export function rankByVotesThenName<T>(items: T[], getVotes: (item: T) => number, getName: (item: T) => string) {
+  return [...items].sort((a, b) => {
+    const voteDiff = getVotes(b) - getVotes(a);
+    if (voteDiff !== 0) return voteDiff;
+    return getName(a).localeCompare(getName(b), "en");
+  });
+}
+
 export function liveDisplaySettings(election: {
   results_rotate_seconds?: number | null;
   results_require_verification?: boolean | null;

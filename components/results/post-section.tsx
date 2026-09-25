@@ -5,8 +5,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CandidateCard } from "@/components/results/candidate-card";
 import { LiveCounter } from "@/components/results/live-counter";
 import { WinnerBurst } from "@/components/results/winner-burst";
-import type { ElectionState, LivePost } from "@/lib/types";
-import { formatNumber, liveCountedBallots, ordinalMark, percent, resolveSeats, competitionRank } from "@/lib/utils";
+import type { LivePost } from "@/lib/types";
+import {
+  formatNumber,
+  liveCountedBallots,
+  ordinalMark,
+  percent,
+  postIsDeclared,
+  rankByVotesThenName,
+  resolveSeats,
+  competitionRank,
+} from "@/lib/utils";
 
 const SLICE_COLORS = [
   "#059669",
@@ -22,17 +31,15 @@ const SLICE_COLORS = [
 export function PostSection({
   post,
   flashKey,
-  electionState,
   serial,
   requireVerification,
 }: {
   post: LivePost;
   flashKey: number;
-  electionState: ElectionState;
   serial: number;
   requireVerification: boolean;
 }) {
-  const ranked = [...(post.candidates ?? [])].sort((a, b) => b.votes - a.votes);
+  const ranked = rankByVotesThenName(post.candidates ?? [], (candidate) => candidate.votes, (candidate) => candidate.name);
   const maxVotes = ranked[0]?.votes ?? 0;
   const invalidVotes = post.invalid_votes ?? 0;
   const invalidSlots =
@@ -41,7 +48,7 @@ export function PostSection({
   const countedMarks = candidateVotes + invalidVotes;
   const countedBallots = liveCountedBallots(post);
   const votesPolled = post.votes_polled ?? 0;
-  const declared = post.is_finalised || electionState === "finalised";
+  const declared = postIsDeclared(post);
   const { elected, tied } = resolveSeats(ranked, post.seats, (candidate) => candidate.votes);
   const winners = declared ? elected : [];
   const tiedDeclared = declared ? tied : [];

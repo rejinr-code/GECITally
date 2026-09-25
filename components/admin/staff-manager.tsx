@@ -115,6 +115,11 @@ function CreateAccountForm({ posts }: { posts: Post[] }) {
           </div>
         </div>
       )}
+      <div className="space-y-2 md:col-span-2">
+        <Label htmlFor="admin_password">Your admin password</Label>
+        <Input id="admin_password" name="admin_password" type="password" autoComplete="off" required />
+        <p className="text-xs text-muted-foreground">Required to create accounts, including other admins.</p>
+      </div>
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? <Spinner /> : null}
         Create account
@@ -137,9 +142,7 @@ function RoleList({ title, people }: { title: string; people: Profile[] }) {
             {people.map((person) => (
               <li key={person.id} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
                 <span className="font-medium">{person.full_name}</span>
-                <Badge variant="secondary">
-                  {roleLabel(person.role)}
-                </Badge>
+                <Badge variant="secondary">{roleLabel(person.role)}</Badge>
               </li>
             ))}
           </ul>
@@ -167,6 +170,9 @@ function StaffList({ staff, posts }: { staff: StaffRow[]; posts: Post[] }) {
 
 function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
   const [selected, setSelected] = useState<string[]>(person.assigned_post_ids);
+  const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const { isSubmitting, run } = useAntiDuplicate();
 
   return (
@@ -175,13 +181,8 @@ function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
         <p className="font-medium">{person.full_name}</p>
         <select
           className="h-9 rounded-md border border-input bg-card px-2 text-sm"
-          defaultValue={person.role}
-          onChange={(event) => {
-            void updateProfileRole(person.id, event.target.value as UserRole).then((result) => {
-              if (result.error) toast.error(result.error);
-              else toast.success("Role updated.");
-            });
-          }}
+          value={pendingRole ?? person.role}
+          onChange={(event) => setPendingRole(event.target.value as UserRole)}
         >
           <option value="staff">Counting Supervisor</option>
           <option value="supervisor">Returning Officer</option>
@@ -212,13 +213,7 @@ function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
           size="sm"
           type="button"
           disabled={isSubmitting}
-          onClick={() => {
-            void run(async () => {
-              const result = await updateStaffAssignments(person.id, selected);
-              if (result.error) toast.error(result.error);
-              else toast.success("Assignments saved.");
-            });
-          }}
+          onClick={() => setAssignOpen(true)}
         >
           {isSubmitting ? <Spinner /> : null}
           Save assignments
@@ -228,19 +223,132 @@ function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
           type="button"
           variant="outline"
           disabled={isSubmitting}
-          onClick={() => {
-            if (!window.confirm(`Delete ${person.full_name}? They will no longer be able to sign in.`)) {
-              return;
-            }
-            void run(async () => {
-              const result = await deleteStaffAccount(person.id);
-              if (result.error) toast.error(result.error);
-              else toast.success("Counting Supervisor deleted.");
-            });
-          }}
+          onClick={() => setDeleteOpen(true)}
         >
           Delete
         </Button>
+      </div>
+      {assignOpen ? (
+        <PasswordDialog
+          title={`Save assignments for ${person.full_name}?`}
+          detail="This controls which posts they can count. Enter your admin password to confirm."
+          confirmLabel="Save assignments"
+          busy={isSubmitting}
+          onCancel={() => setAssignOpen(false)}
+          onConfirm={(password) => {
+            void run(async () => {
+              const result = await updateStaffAssignments(person.id, selected, password);
+              if (result.error) {
+                toast.error(result.error);
+                return false;
+              }
+              toast.success("Assignments saved.");
+              setAssignOpen(false);
+              return true;
+            });
+          }}
+        />
+      ) : null}
+      {pendingRole && pendingRole !== person.role ? (
+        <PasswordDialog
+          title={`Change ${person.full_name} to ${roleLabel(pendingRole)}?`}
+          detail="Enter your admin password to confirm this role change."
+          confirmLabel="Update role"
+          busy={isSubmitting}
+          onCancel={() => setPendingRole(null)}
+          onConfirm={(password) => {
+            void run(async () => {
+              const result = await updateProfileRole(person.id, pendingRole, password);
+              if (result.error) {
+                toast.error(result.error);
+                return false;
+              }
+              toast.success("Role updated.");
+              setPendingRole(null);
+              return true;
+            });
+          }}
+        />
+      ) : null}
+      {deleteOpen ? (
+        <PasswordDialog
+          title={`Delete ${person.full_name}?`}
+          detail="They will no longer be able to sign in. Enter your admin password to confirm."
+          confirmLabel="Delete"
+          destructive
+          busy={isSubmitting}
+          onCancel={() => setDeleteOpen(false)}
+          onConfirm={(password) => {
+            void run(async () => {
+              const result = await deleteStaffAccount(person.id, password);
+              if (result.error) {
+                toast.error(result.error);
+                return false;
+              }
+              toast.success("Counting Supervisor deleted.");
+              setDeleteOpen(false);
+              return true;
+            });
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PasswordDialog({
+  title,
+  detail,
+  confirmLabel,
+  destructive = false,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  detail: string;
+  confirmLabel: string;
+  destructive?: boolean;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (password: string) => void;
+}) {
+  const [password, setPassword] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+      <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl border bg-white p-6 shadow-2xl">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+        <form
+          className="mt-4 space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onConfirm(password);
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="people-admin-password">Admin password</Label>
+            <Input
+              id="people-admin-password"
+              type="password"
+              autoComplete="off"
+              value={password}
+              autoFocus
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" variant={destructive ? "destructive" : "default"} disabled={busy || !password.trim()}>
+              {busy ? <Spinner /> : null}
+              {confirmLabel}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );

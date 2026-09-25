@@ -28,6 +28,7 @@ import {
   percent,
   resolveSeats,
   competitionRank,
+  rankByVotesThenName,
 } from "@/lib/utils";
 
 const INVALID_KEY = "__invalid__";
@@ -281,6 +282,7 @@ export function CountForm({
 
   function openSubmitFromLimit() {
     setLimitOpen(false);
+    if (pendingTotal > 0 || fillingBallot || !canSubmit) return;
     setError(null);
     setSubmitOpen(true);
   }
@@ -395,13 +397,15 @@ export function CountForm({
 
   if (countingFinished) {
     const tallies = new Map((result?.entries ?? []).map((entry) => [entry.candidate_id, entry]));
-    const ranked = [...candidates]
-      .map((candidate) => ({
+    const ranked = rankByVotesThenName(
+      [...candidates].map((candidate) => ({
         candidate,
         votes: tallies.get(candidate.id)?.votes ?? 0,
         slot_votes: tallies.get(candidate.id)?.slot_votes,
-      }))
-      .sort((a, b) => b.votes - a.votes);
+      })),
+      (row) => row.votes,
+      (row) => row.candidate.name,
+    );
     const { elected, tied } = resolveSeats(ranked, seats, (row) => row.votes);
     const electedIds = new Set(elected.map((row) => row.candidate.id));
     const tiedIds = new Set(tied.map((row) => row.candidate.id));

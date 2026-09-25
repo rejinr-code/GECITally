@@ -11,7 +11,16 @@ import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber, liveCountedBallots, liveDisplaySettings, ordinalMark, percent, shortPostName } from "@/lib/utils";
+import {
+  formatDate,
+  formatNumber,
+  liveCountedBallots,
+  liveDisplaySettings,
+  ordinalMark,
+  percent,
+  postIsDeclared,
+  shortPostName,
+} from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const BIG_SCREEN_KEY = "geci-big-screen";
@@ -77,15 +86,11 @@ export function ResultsBoard({
     const counted = posts.reduce((sum, post) => sum + liveCountedBallots(post), 0);
     return percent(counted, polled);
   }, [posts]);
-  const declaredCount = posts.filter(
-    (post) => post.is_finalised || election?.state === "finalised",
-  ).length;
+  const declaredCount = posts.filter((post) => postIsDeclared(post)).length;
   const display = liveDisplaySettings(election);
   const rotateMs = display.results_rotate_seconds * 1000;
   const currentDeclared = Boolean(
-    current &&
-      (current.is_finalised || election?.state === "finalised") &&
-      (current.candidates ?? []).some((candidate) => candidate.votes > 0),
+    current && postIsDeclared(current) && (current.candidates ?? []).some((candidate) => candidate.votes > 0),
   );
 
   useEffect(() => {
@@ -240,9 +245,7 @@ export function ResultsBoard({
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
               {posts.map((post, index) => {
-                const won =
-                  (post.is_finalised || election.state === "finalised") &&
-                  post.candidates.some((candidate) => candidate.votes > 0);
+                const won = postIsDeclared(post) && post.candidates.some((candidate) => candidate.votes > 0);
                 return (
                   <button
                     key={post.id}
@@ -298,7 +301,6 @@ export function ResultsBoard({
                     votes_polled: current.votes_polled ?? election.total_votes_polled,
                   }}
                   flashKey={flashKey}
-                  electionState={election.state}
                   serial={safeIndex + 1}
                   requireVerification={display.results_require_verification}
                 />

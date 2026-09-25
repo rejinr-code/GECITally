@@ -51,7 +51,8 @@ In the Supabase SQL editor, run in order:
 13. `supabase/migrations/0013_display_role.sql`
 14. `supabase/migrations/0014_multi_seat_ballots.sql`
 15. `supabase/migrations/0015_candidate_slot_votes.sql`
-16. `supabase/seed.sql` (optional starter posts)
+16. `supabase/migrations/0016_integrity_and_authz.sql`
+17. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -67,6 +68,8 @@ update public.profiles
 ```
 
 Counting Supervisor, Returning Officer, and public results display accounts should be created from `/admin` so roles and post assignments are applied correctly.
+
+In **Authentication → Providers → Email**, turn **off** public sign-ups. New accounts should only come from `/admin`. If sign-up stays on, a stranger can create a Counting Supervisor profile. They still cannot submit counts without a post assignment, but they can open live results.
 
 ### 5. Run the app
 
