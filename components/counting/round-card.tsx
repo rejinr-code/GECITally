@@ -1,54 +1,48 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CountEntry, CountRound } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
-const STATUS: Record<CountRound["status"], { label: string; variant: "warning" | "success" | "destructive" }> = {
-  pending_verification: { label: "Awaiting verification", variant: "warning" },
-  verified: { label: "Verified", variant: "success" },
-  rejected: { label: "Rejected", variant: "destructive" },
+const STATUS: Record<CountRound["status"], string> = {
+  pending_verification: "Pending",
+  verified: "Verified",
+  rejected: "Rejected",
 };
 
 export function RoundCard({
   round,
   entries,
+  invalidVotes,
 }: {
   round: CountRound;
   entries: Array<CountEntry & { candidate_name: string }>;
+  invalidVotes?: number;
 }) {
-  const status = STATUS[round.status];
-  const invalid = round.invalid_votes ?? 0;
+  const invalid = invalidVotes ?? round.invalid_votes ?? 0;
   const total = entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
+  const counts = [
+    ...entries.map((entry) => `${entry.candidate_name} ${formatNumber(entry.votes)}`),
+    `Invalid ${formatNumber(invalid)}`,
+  ].join(" · ");
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Round {round.round_number}</CardTitle>
-        <div className="flex items-center gap-2">
-          {round.is_finalised && <Badge>Finalised</Badge>}
-          <Badge variant={status.variant}>{status.label}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-2 text-sm">
-        {entries.map((entry) => (
-          <div key={entry.id} className="flex justify-between">
-            <span>{entry.candidate_name}</span>
-            <span className="font-medium">{entry.votes}</span>
-          </div>
-        ))}
-        <div className="flex justify-between text-red-700">
-          <span>Invalid</span>
-          <span className="font-medium">{invalid}</span>
-        </div>
-        <div className="flex justify-between border-t pt-2 font-semibold">
-          <span>Total</span>
-          <span>{total}</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Submitted {formatDate(round.submitted_at)}
-          {round.remarks ? ` · ${round.remarks}` : ""}
+    <div className="border-b border-border/70 py-2.5 last:border-b-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm font-medium">
+          Round {round.round_number}
+          <span
+            className={cn(
+              "ml-2 text-xs font-normal",
+              round.status === "rejected" && "text-red-700",
+              round.status === "pending_verification" && "text-amber-700",
+              round.status === "verified" && "text-muted-foreground",
+            )}
+          >
+            {STATUS[round.status]}
+          </span>
         </p>
-      </CardContent>
-    </Card>
+        <p className="text-sm font-semibold tabular-nums">{formatNumber(total)}</p>
+      </div>
+      <p className="mt-0.5 truncate text-xs text-muted-foreground">{counts}</p>
+      {round.remarks ? <p className="mt-1 text-xs text-red-700">{round.remarks}</p> : null}
+    </div>
   );
 }
