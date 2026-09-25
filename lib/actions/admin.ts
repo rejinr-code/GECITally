@@ -446,6 +446,48 @@ export async function updateProfileRole(profileId: string, role: UserRole) {
   }
 }
 
+export async function deleteStaffAccount(staffId: string) {
+  try {
+    const { supabase, user } = await requireAdmin();
+    if (staffId === user.id) {
+      return { error: "You cannot delete your own account." };
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, role")
+      .eq("id", staffId)
+      .maybeSingle();
+    if (profileError) return { error: profileError.message };
+    if (!profile) return { error: "Account not found." };
+    if (profile.role !== "staff") {
+      return { error: "Only Counting Supervisors can be deleted from this list." };
+    }
+
+    const { count, error: roundsError } = await supabase
+      .from("count_rounds")
+      .select("id", { count: "exact", head: true })
+      .eq("staff_id", staffId);
+    if (roundsError) return { error: roundsError.message };
+    if ((count ?? 0) > 0) {
+      return {
+        error:
+          "This Counting Supervisor has submitted rounds and cannot be deleted. Reset counts first if you need to remove them.",
+      };
+    }
+
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.deleteUser(staffId);
+    if (error) return { error: error.message };
+
+    revalidatePath("/admin");
+    revalidatePath("/staff");
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not delete account." };
+  }
+}
+
 export async function resetElectionCounts(electionId: string, password: string) {
   try {
     if (typeof password !== "string" || !password.trim()) {

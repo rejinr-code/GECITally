@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { createStaffAccount, updateProfileRole, updateStaffAssignments } from "@/lib/actions/admin";
+import {
+  createStaffAccount,
+  deleteStaffAccount,
+  updateProfileRole,
+  updateStaffAssignments,
+} from "@/lib/actions/admin";
 import type { Post, Profile, UserRole } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -202,22 +207,41 @@ function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
           </label>
         ))}
       </div>
-      <Button
-        className="mt-3"
-        size="sm"
-        type="button"
-        disabled={isSubmitting}
-        onClick={() => {
-          void run(async () => {
-            const result = await updateStaffAssignments(person.id, selected);
-            if (result.error) toast.error(result.error);
-            else toast.success("Assignments saved.");
-          });
-        }}
-      >
-        {isSubmitting ? <Spinner /> : null}
-        Save assignments
-      </Button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          type="button"
+          disabled={isSubmitting}
+          onClick={() => {
+            void run(async () => {
+              const result = await updateStaffAssignments(person.id, selected);
+              if (result.error) toast.error(result.error);
+              else toast.success("Assignments saved.");
+            });
+          }}
+        >
+          {isSubmitting ? <Spinner /> : null}
+          Save assignments
+        </Button>
+        <Button
+          size="sm"
+          type="button"
+          variant="outline"
+          disabled={isSubmitting}
+          onClick={() => {
+            if (!window.confirm(`Delete ${person.full_name}? They will no longer be able to sign in.`)) {
+              return;
+            }
+            void run(async () => {
+              const result = await deleteStaffAccount(person.id);
+              if (result.error) toast.error(result.error);
+              else toast.success("Counting Supervisor deleted.");
+            });
+          }}
+        >
+          Delete
+        </Button>
+      </div>
     </div>
   );
 }
