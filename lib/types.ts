@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "staff" | "supervisor";
+export type UserRole = "admin" | "staff" | "supervisor" | "display";
 export type ElectionState = "setup" | "counting" | "finalised";
 export type RoundStatus = "pending_verification" | "verified" | "rejected";
 

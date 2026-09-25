@@ -5,13 +5,10 @@ import { usePathname } from "next/navigation";
 import { BrandLockup } from "@/components/branding/geci-mark";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import type { UserRole } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, roleHome } from "@/lib/utils";
 
 const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
-  admin: [
-    { href: "/admin", label: "Dashboard" },
-    { href: "/results", label: "Live results" },
-  ],
+  admin: [{ href: "/admin", label: "Dashboard" }],
   staff: [
     { href: "/staff", label: "Counting" },
     { href: "/results", label: "Live results" },
@@ -20,6 +17,7 @@ const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
     { href: "/supervisor", label: "Verification" },
     { href: "/results", label: "Live results" },
   ],
+  display: [{ href: "/results", label: "Live results" }],
 };
 
 function isCurrent(pathname: string, href: string) {
@@ -38,7 +36,7 @@ export function AppHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href={role === "admin" ? "/admin" : `/${role}`}>
+        <Link href={roleHome(role)}>
           <BrandLockup compact />
         </Link>
         <nav className="flex items-center gap-1 text-sm">
@@ -64,7 +62,9 @@ export function AppHeader({
         <div className="flex items-center gap-3">
           <div className="hidden text-right sm:block">
             <p className="text-sm font-medium">{name}</p>
-            <p className="text-xs capitalize text-muted-foreground">{role}</p>
+            <p className="text-xs capitalize text-muted-foreground">
+              {role === "display" ? "public results" : role}
+            </p>
           </div>
           <SignOutButton />
         </div>

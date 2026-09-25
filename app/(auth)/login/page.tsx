@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BrandLockup } from "@/components/branding/geci-mark";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { LoginForm } from "@/components/auth/login-form";
@@ -19,8 +20,14 @@ export default async function LoginPage({
             <BrandLockup />
             <CardTitle className="pt-4">Counting duty login</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <LoginForm next={next} />
+            <p className="text-center text-sm text-muted-foreground">
+              Hall display?{" "}
+              <Link href="/results/login" className="text-primary hover:underline">
+                Public results login
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>

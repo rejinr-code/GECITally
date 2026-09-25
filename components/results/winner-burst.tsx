@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { LiveCandidate } from "@/lib/types";
 import { candidateClassLabel } from "@/lib/candidate-class";
 import { initials } from "@/lib/utils";
+
+export const WINNER_BURST_MS = 4200;
 
 const CONFETTI = Array.from({ length: 28 }, (_, index) => ({
   id: index,
@@ -16,9 +18,11 @@ const CONFETTI = Array.from({ length: 28 }, (_, index) => ({
 }));
 
 export function WinnerBurst({
+  postId,
   winners,
   seats,
 }: {
+  postId: string;
   winners: LiveCandidate[];
   seats: number;
 }) {
@@ -26,81 +30,76 @@ export function WinnerBurst({
 
   useEffect(() => {
     setVisible(true);
-    const timer = window.setTimeout(() => setVisible(false), 4200);
+    const timer = window.setTimeout(() => setVisible(false), WINNER_BURST_MS);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [postId]);
 
   const headline = seats > 1 ? "ELECTED" : "WINS";
   const lead = winners[0];
-  if (!lead) return null;
+  if (!lead || !visible) return null;
 
   return (
-    <AnimatePresence>
-      {visible ? (
-        <motion.div
-          className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px]" />
-          {CONFETTI.map((piece) => (
-            <span
-              key={piece.id}
-              className="absolute top-0 h-3 w-1.5 rounded-sm"
-              style={
-                {
-                  left: piece.left,
-                  background: piece.color,
-                  animation: `confettiFall ${piece.duration} linear ${piece.delay} both`,
-                  "--drift": piece.drift,
-                } as CSSProperties
-              }
+    <motion.div
+      className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px]" />
+      {CONFETTI.map((piece) => (
+        <span
+          key={piece.id}
+          className="absolute top-0 h-3 w-1.5 rounded-sm"
+          style={
+            {
+              left: piece.left,
+              background: piece.color,
+              animation: `confettiFall ${piece.duration} linear ${piece.delay} both`,
+              "--drift": piece.drift,
+            } as CSSProperties
+          }
+        />
+      ))}
+      <motion.div
+        className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
+        initial={{ scale: 0.7, y: 30 }}
+        animate={{ scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 160, damping: 14 }}
+      >
+        <p className="text-xs font-semibold tracking-[0.45em] text-amber-600">RESULT DECLARED</p>
+        <div className="mt-4 flex items-center gap-4">
+          {lead.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={lead.photo_url}
+              alt=""
+              className="size-20 rounded-full object-cover ring-4 ring-amber-400 md:size-24"
             />
-          ))}
-          <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
-            initial={{ scale: 0.7, y: 30 }}
-            animate={{ scale: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 160, damping: 14 }}
-          >
-            <p className="text-xs font-semibold tracking-[0.45em] text-amber-600">RESULT DECLARED</p>
-            <div className="mt-4 flex items-center gap-4">
-              {lead.photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={lead.photo_url}
-                  alt=""
-                  className="size-20 rounded-full object-cover ring-4 ring-amber-400 md:size-24"
-                />
-              ) : (
-                <div className="flex size-20 items-center justify-center rounded-full bg-amber-300 text-2xl font-bold text-emerald-950 ring-4 ring-emerald-800 md:size-24">
-                  {initials(lead.name)}
-                </div>
-              )}
-              <div className="text-left">
-                <p
-                  className="bg-[linear-gradient(90deg,#b45309,#ca8a04,#f59e0b,#b45309)] bg-[length:200%_100%] bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
-                  style={{ animation: "goldShine 1.6s linear infinite" }}
-                >
-                  {headline}
-                </p>
-                <p className="mt-1 text-2xl font-semibold text-emerald-950 md:text-3xl">{lead.name}</p>
-                <p className="text-sm text-emerald-700">
-                  {[candidateClassLabel(lead.branch, lead.year, lead.semester), lead.panel_name]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              </div>
+          ) : (
+            <div className="flex size-20 items-center justify-center rounded-full bg-amber-300 text-2xl font-bold text-emerald-950 ring-4 ring-emerald-800 md:size-24">
+              {initials(lead.name ?? "")}
             </div>
-            {winners.length > 1 ? (
-              <p className="mt-4 text-sm text-amber-800">
-                with {winners.slice(1).map((winner) => winner.name).join(", ")}
-              </p>
-            ) : null}
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+          )}
+          <div className="text-left">
+            <p
+              className="bg-[linear-gradient(90deg,#b45309,#ca8a04,#f59e0b,#b45309)] bg-[length:200%_100%] bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
+              style={{ animation: "goldShine 1.6s linear infinite" }}
+            >
+              {headline}
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-emerald-950 md:text-3xl">{lead.name}</p>
+            <p className="text-sm text-emerald-700">
+              {[candidateClassLabel(lead.branch, lead.year, lead.semester), lead.panel_name]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+        </div>
+        {winners.length > 1 ? (
+          <p className="mt-4 text-sm text-amber-800">
+            with {winners.slice(1).map((winner) => winner.name).join(", ")}
+          </p>
+        ) : null}
+      </motion.div>
+    </motion.div>
   );
 }

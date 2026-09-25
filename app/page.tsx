@@ -10,7 +10,7 @@ export default function HomePage() {
         <BrandLockup />
         <div className="flex gap-2">
           <Button asChild variant="outline">
-            <Link href="/results">Live results</Link>
+            <Link href="/results/login">Public results login</Link>
           </Button>
           <Button asChild>
             <Link href="/login">Staff login</Link>
@@ -26,11 +26,11 @@ export default function HomePage() {
         </h1>
         <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
           Counting staff enter votes round by round. Supervisors verify every entry.
-          Results appear instantly for the hall, and a post locks when its counted ballots are complete.
+          Hall results need a public results login. A post locks when its counted ballots are complete.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <Link href="/results">Watch live results</Link>
+            <Link href="/results/login">Open hall results</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link href="/login">Open counting console</Link>
@@ -40,7 +40,7 @@ export default function HomePage() {
           {[
             ["Counting staff", "Assigned posts only. Confirm every round before it is saved."],
             ["Supervisor", "Verify or reject submitted rounds. Progress is tracked against ballots polled."],
-            ["Public hall display", "Animated live totals, leading-candidate highlights, and projector mode."],
+            ["Hall display login", "A dedicated public results account opens the live board for the hall projector."],
           ].map(([title, body]) => (
             <div key={title} className="rounded-2xl border bg-white/80 p-5 shadow-sm">
               <h2 className="font-semibold">{title}</h2>

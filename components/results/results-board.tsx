@@ -6,8 +6,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRealtimeResults } from "@/hooks/use-realtime-results";
 import { PostSection } from "@/components/results/post-section";
 import { LiveCounter } from "@/components/results/live-counter";
+import { WINNER_BURST_MS } from "@/components/results/winner-burst";
 import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatNumber, liveCountedBallots, liveDisplaySettings, percent, shortPostName } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -43,7 +45,13 @@ function setBigScreenMode(value: boolean) {
   emitBigScreen();
 }
 
-export function ResultsBoard() {
+export function ResultsBoard({
+  signOutHref = "/results/login",
+  homeHref = "/",
+}: {
+  signOutHref?: string;
+  homeHref?: string;
+}) {
   const { data, error, loading, flashKey } = useRealtimeResults();
   const bigScreen = useSyncExternalStore(
     subscribeBigScreen,
@@ -52,6 +60,7 @@ export function ResultsBoard() {
   );
   const [postIndex, setPostIndex] = useState(0);
   const [cycle, setCycle] = useState(0);
+  const [winnerHold, setWinnerHold] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("big-screen", bigScreen);
@@ -73,15 +82,30 @@ export function ResultsBoard() {
   ).length;
   const display = liveDisplaySettings(election);
   const rotateMs = display.results_rotate_seconds * 1000;
+  const currentDeclared = Boolean(
+    current &&
+      (current.is_finalised || election?.state === "finalised") &&
+      (current.candidates ?? []).some((candidate) => candidate.votes > 0),
+  );
 
   useEffect(() => {
-    if (posts.length <= 1) return;
+    if (!currentDeclared || !current) {
+      setWinnerHold(false);
+      return;
+    }
+    setWinnerHold(true);
+    const timer = window.setTimeout(() => setWinnerHold(false), WINNER_BURST_MS);
+    return () => window.clearTimeout(timer);
+  }, [current?.id, currentDeclared]);
+
+  useEffect(() => {
+    if (posts.length <= 1 || winnerHold) return;
     const timer = window.setInterval(() => {
       setPostIndex((index) => (index + 1) % posts.length);
       setCycle((value) => value + 1);
     }, rotateMs);
     return () => window.clearInterval(timer);
-  }, [posts.length, cycle, rotateMs]);
+  }, [posts.length, cycle, rotateMs, winnerHold]);
 
   function showPost(index: number) {
     setPostIndex(index);
@@ -92,18 +116,18 @@ export function ResultsBoard() {
     return (
       <p className="py-24 text-center text-muted-foreground">
         Loading live results…{" "}
-        <Link href="/" className="text-primary hover:underline">
+        <Link href={homeHref} className="text-primary hover:underline">
           Home
         </Link>
       </p>
     );
   }
 
-  if (error) {
+  if (error && !election) {
     return (
       <p className="mx-auto max-w-xl rounded-xl bg-red-50 p-6 text-center text-red-800">
         {error}. Confirm the Supabase URL/keys and that the schema migration has been applied.{" "}
-        <Link href="/" className="font-medium text-red-950 hover:underline">
+        <Link href={homeHref} className="font-medium text-red-950 hover:underline">
           Home
         </Link>
       </p>
@@ -114,7 +138,7 @@ export function ResultsBoard() {
     return (
       <p className="py-24 text-center text-muted-foreground">
         No election has been configured yet.{" "}
-        <Link href="/" className="text-primary hover:underline">
+        <Link href={homeHref} className="text-primary hover:underline">
           Home
         </Link>
       </p>
@@ -132,7 +156,7 @@ export function ResultsBoard() {
     >
       <header className="shrink-0 border-b border-emerald-200 bg-white/90 backdrop-blur">
         <div className="flex items-center gap-3 px-3 py-2 md:px-4">
-          <Link href="/" className="shrink-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Link href={homeHref} className="shrink-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <GeciMark className="size-10 md:size-11" />
             <span className="sr-only">Home</span>
           </Link>
@@ -178,8 +202,9 @@ export function ResultsBoard() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button asChild size="sm" variant="outline">
-              <Link href="/">Home</Link>
+              <Link href={homeHref}>Home</Link>
             </Button>
+            <SignOutButton href={signOutHref} />
             <Button
               type="button"
               size="sm"
@@ -243,7 +268,7 @@ export function ResultsBoard() {
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col p-2 md:p-3">
           {current ? (
-            <AnimatePresence mode="wait">
+            <AnimatePresence initial={false}>
               <motion.div
                 key={current.id}
                 className="flex min-h-0 flex-1 flex-col"

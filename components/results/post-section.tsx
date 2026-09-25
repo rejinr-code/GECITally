@@ -32,7 +32,7 @@ export function PostSection({
   serial: number;
   requireVerification: boolean;
 }) {
-  const ranked = [...post.candidates].sort((a, b) => b.votes - a.votes);
+  const ranked = [...(post.candidates ?? [])].sort((a, b) => b.votes - a.votes);
   const maxVotes = ranked[0]?.votes ?? 0;
   const invalidVotes = post.invalid_votes ?? 0;
   const candidateVotes = ranked.reduce((sum, candidate) => sum + candidate.votes, 0);
@@ -63,14 +63,12 @@ export function PostSection({
 
   return (
     <motion.section
-      layout
-      key={`${post.id}-${flashKey}`}
       className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/85 p-3 shadow-sm backdrop-blur md:p-4"
       initial={false}
       animate={{ boxShadow: flashKey ? "0 0 0 4px rgba(16,185,129,0.22)" : "0 1px 2px rgba(0,0,0,0.04)" }}
       transition={{ duration: 0.8 }}
     >
-      {winners.length > 0 ? <WinnerBurst key={post.id} winners={winners} seats={post.seats} /> : null}
+      {winners.length > 0 ? <WinnerBurst postId={post.id} winners={winners} seats={post.seats} /> : null}
 
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>

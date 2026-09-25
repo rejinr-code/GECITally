@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
-import { roleHome } from "@/lib/utils";
+import { canViewResults, roleHome } from "@/lib/utils";
 
 export async function requireRole(allowed: UserRole | UserRole[]) {
   const supabase = await createClient();
@@ -26,6 +26,28 @@ export async function requireRole(allowed: UserRole | UserRole[]) {
   return { supabase, user, role };
 }
 
+export async function requireResultsAccess() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/results/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const role = profile?.role as UserRole | undefined;
+  if (!canViewResults(role)) {
+    redirect(roleHome(role));
+  }
+
+  return { supabase, user, role };
+}
+
 export function safeNextPath(next: string, role: string | null | undefined) {
   const home = roleHome(role);
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {
@@ -36,7 +58,12 @@ export function safeNextPath(next: string, role: string | null | undefined) {
   }
 
   const path = next.split("?")[0] ?? next;
-  if (path === "/results" || path.startsWith("/results/")) return "/results";
+  if (path === "/results/login" || path.startsWith("/results/login/")) {
+    return home;
+  }
+  if (canViewResults(role) && (path === "/results" || path.startsWith("/results/"))) {
+    return "/results";
+  }
   if (role === "admin" && (path === "/admin" || path.startsWith("/admin/"))) return next;
   if (role === "staff" && (path === "/staff" || path.startsWith("/staff/"))) return next;
   if (role === "supervisor" && (path === "/supervisor" || path.startsWith("/supervisor/"))) return next;

@@ -25,6 +25,7 @@ export function StaffManager({
   const staff = people.filter((person) => person.role === "staff");
   const supervisors = people.filter((person) => person.role === "supervisor");
   const admins = people.filter((person) => person.role === "admin");
+  const displays = people.filter((person) => person.role === "display");
 
   return (
     <div className="space-y-6">
@@ -38,6 +39,7 @@ export function StaffManager({
       </Card>
 
       <RoleList title="Counting supervisor" people={supervisors} />
+      <RoleList title="Public results display" people={displays} />
       <RoleList title="Admins" people={admins} />
       <StaffList staff={staff} posts={posts} />
     </div>
@@ -88,6 +90,7 @@ function CreateAccountForm({ posts }: { posts: Post[] }) {
         >
           <option value="staff">Counting staff</option>
           <option value="supervisor">Counting supervisor</option>
+          <option value="display">Public results display</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -177,6 +180,7 @@ function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
         >
           <option value="staff">staff</option>
           <option value="supervisor">supervisor</option>
+          <option value="display">public results</option>
           <option value="admin">admin</option>
         </select>
       </div>

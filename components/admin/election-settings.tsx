@@ -269,7 +269,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            These settings change how staff count and what the public hall board shows. Saving them
+            These settings change how staff count and what the hall display board shows. Saving them
             requires your admin password.
           </p>
           <div className="grid gap-4 md:grid-cols-2">
@@ -339,7 +339,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 <span>
                   <span className="font-medium">After supervisor approval</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Public results only include verified rounds.
+                    Hall results only include verified rounds.
                   </span>
                 </span>
               </label>

@@ -373,7 +373,7 @@ export async function createStaffAccount(formData: FormData) {
     if (password.length < 8) {
       return { error: "Password must be at least 8 characters." };
     }
-    if (!["admin", "staff", "supervisor"].includes(role)) {
+    if (!["admin", "staff", "supervisor", "display"].includes(role)) {
       return { error: "Invalid role." };
     }
 
@@ -433,6 +433,9 @@ export async function updateStaffAssignments(staffId: string, postIds: string[])
 
 export async function updateProfileRole(profileId: string, role: UserRole) {
   try {
+    if (!["admin", "staff", "supervisor", "display"].includes(role)) {
+      return { error: "Invalid role." };
+    }
     const { supabase } = await requireAdmin();
     const { error } = await supabase.from("profiles").update({ role }).eq("id", profileId);
     if (error) return { error: error.message };

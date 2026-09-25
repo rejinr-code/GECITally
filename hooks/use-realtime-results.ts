@@ -19,21 +19,29 @@ export function useRealtimeResults() {
       const supabase = createClient();
       const { data: payload, error: rpcError } = await supabase.rpc("get_live_results");
       if (rpcError) throw rpcError;
-      const serialized = JSON.stringify(payload);
+      if (!payload || typeof payload !== "object") {
+        throw new Error("Live results returned an empty payload.");
+      }
+      const results = payload as LiveResults;
+      const serialized = JSON.stringify(results);
       const changed = serialized !== lastPayload.current;
       lastPayload.current = serialized;
-      const results = payload as LiveResults;
       setData({
         ...results,
-        posts: (results.posts ?? []).map((post) => ({
+        posts: (Array.isArray(results.posts) ? results.posts : []).map((post) => ({
           ...post,
+          candidates: Array.isArray(post.candidates) ? post.candidates : [],
           invalid_votes: post.invalid_votes ?? 0,
         })),
       });
       setError(null);
       if (withFlash && changed) setFlashKey((key) => key + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load results");
+      const message =
+        err && typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string"
+          ? (err as { message: string }).message
+          : "Could not load results";
+      if (!lastPayload.current) setError(message);
     } finally {
       setLoading(false);
     }

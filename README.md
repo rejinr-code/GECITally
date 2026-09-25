@@ -2,7 +2,7 @@
 
 Official student election counting system for **Government Engineering College Idukki**.
 
-Staff enter vote counts, a supervisor verifies each round, and results publish live on a public page.
+Staff enter vote counts, a supervisor verifies each round, and hall results open only after a supervisor or public-results login.
 
 ## Stack
 
@@ -48,7 +48,8 @@ In the Supabase SQL editor, run in order:
 10. `supabase/migrations/0010_results_tick.sql`
 11. `supabase/migrations/0011_invalid_votes.sql`
 12. `supabase/migrations/0012_admin_reset_finalised.sql`
-13. `supabase/seed.sql` (optional starter posts)
+13. `supabase/migrations/0013_display_role.sql`
+14. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -63,7 +64,7 @@ update public.profiles
  where id = '<auth-user-uuid>';
 ```
 
-Staff and supervisor accounts should be created from `/admin` so roles and post assignments are applied correctly.
+Staff, supervisor, and public results display accounts should be created from `/admin` so roles and post assignments are applied correctly.
 
 ### 5. Run the app
 
@@ -79,9 +80,10 @@ Open [http://localhost:3000](http://localhost:3000).
 | Path | Role | Purpose |
 |---|---|---|
 | `/admin` | admin | Panels, posts, candidates, staff, count limit, live display, election state |
-| `/staff` | staff | Enter per-candidate and invalid counts for assigned posts |
-| `/supervisor` | supervisor | Verify or reject submitted rounds |
-| `/results` | public | Live animated results (no login) |
+| `/staff` | staff | Enter per-candidate and invalid counts for assigned posts; open live results |
+| `/supervisor` | supervisor | Verify or reject submitted rounds; open live results |
+| `/results/login` | display | Dedicated hall / public results login |
+| `/results` | staff, supervisor, display | Live animated results (login required) |
 
 ## Counting rules
 
@@ -89,6 +91,6 @@ Open [http://localhost:3000](http://localhost:3000).
 - Invalid votes count toward the round size and votes polled. They do not add to a candidate.
 - Duplicate submits are blocked in the UI (disabled button + ref guard) and in the database (`unique (post_id, staff_id, round_number)`).
 - Count rows are written only by `submit_count_round` / `review_count_round`. Staff cannot insert or self-verify rounds through the API.
-- Verified rounds become part of the live tally. Admin can instead show pending rounds on the public board immediately after staff submit.
+- Verified rounds become part of the live tally. Admin can instead show pending rounds on the hall board immediately after staff submit.
 - When verified ballots for a post reach that post's votes polled, those totals are finalised and immutable.
 - `count_limit` is the number of ballots in each round. The last round may contain fewer.

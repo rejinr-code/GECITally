@@ -18,7 +18,7 @@ export function LiveCounter({ value, className }: { value: number; className?: s
   }, [spring, value]);
 
   return (
-    <motion.span layout className={className}>
+    <motion.span className={className}>
       {text}
     </motion.span>
   );

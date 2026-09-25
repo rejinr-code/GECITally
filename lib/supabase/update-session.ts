@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { roleHome } from "@/lib/utils";
+import { canViewResults, roleHome } from "@/lib/utils";
 
 const PROTECTED_PREFIXES = ["/admin", "/staff", "/supervisor"];
 
@@ -11,12 +11,24 @@ function requiredRole(pathname: string) {
   return null;
 }
 
+function isResultsLogin(pathname: string) {
+  return pathname === "/results/login" || pathname.startsWith("/results/login/");
+}
+
+function isResultsBoard(pathname: string) {
+  return pathname === "/results" || (pathname.startsWith("/results/") && !isResultsLogin(pathname));
+}
+
 export async function updateSession(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    if (PROTECTED_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
+    const pathname = request.nextUrl.pathname;
+    if (
+      PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+      isResultsBoard(pathname)
+    ) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/setup";
       return NextResponse.redirect(redirectUrl);
@@ -57,7 +69,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (user && pathname === "/login") {
+  if (!user && isResultsBoard(pathname)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/results/login";
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (user && (pathname === "/login" || isResultsLogin(pathname))) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -67,6 +85,20 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = roleHome(profile?.role);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  if (user && isResultsBoard(pathname)) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!canViewResults(profile?.role)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = roleHome(profile?.role);
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   if (user && isProtected) {

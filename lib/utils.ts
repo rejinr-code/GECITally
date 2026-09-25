@@ -58,7 +58,12 @@ export function roleHome(role: string | null | undefined) {
   if (role === "admin") return "/admin";
   if (role === "supervisor") return "/supervisor";
   if (role === "staff") return "/staff";
+  if (role === "display") return "/results";
   return "/login";
+}
+
+export function canViewResults(role: string | null | undefined) {
+  return role === "staff" || role === "supervisor" || role === "display";
 }
 
 export function parsePositiveInt(value: unknown, fallback = 0) {

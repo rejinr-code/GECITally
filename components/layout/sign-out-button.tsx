@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
-export function SignOutButton() {
+export function SignOutButton({ href = "/login" }: { href?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -26,7 +26,7 @@ export function SignOutButton() {
           } catch {
             // Still leave the signed-in UI.
           }
-          router.replace("/login");
+          router.replace(href);
           router.refresh();
         })();
       }}
