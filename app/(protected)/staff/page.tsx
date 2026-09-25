@@ -82,6 +82,9 @@ export default async function StaffHomePage() {
                         <Badge variant="warning">Awaiting Returning Officer verification</Badge>
                       )}
                       {rejected && !pending && <Badge variant="destructive">Rejected</Badge>}
+                      {polled > 0 && counted >= polled && !pending && !rejected ? (
+                        <Badge className="bg-emerald-700 text-white">Counting done</Badge>
+                      ) : null}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">

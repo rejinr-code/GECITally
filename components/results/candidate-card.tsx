@@ -12,6 +12,7 @@ export function CandidateCard({
   rank,
   leading,
   elected,
+  tied = false,
   maxVotes,
   seats,
   share,
@@ -20,6 +21,7 @@ export function CandidateCard({
   rank: number;
   leading: boolean;
   elected: boolean;
+  tied?: boolean;
   maxVotes: number;
   seats: number;
   share: number;
@@ -36,7 +38,9 @@ export function CandidateCard({
         "relative overflow-hidden rounded-xl border bg-white px-3 py-3 shadow-sm",
         elected
           ? "border-amber-400 bg-gradient-to-r from-amber-50 via-white to-emerald-50 shadow-[0_0_20px_rgba(251,191,36,0.28)]"
-          : leading
+          : tied
+            ? "border-sky-400 bg-sky-50/80 shadow-[0_0_0_3px_rgba(14,165,233,0.16)]"
+            : leading
             ? "border-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]"
             : "border-emerald-100",
       )}
@@ -49,12 +53,20 @@ export function CandidateCard({
         >
           ELECTED
         </motion.span>
+      ) : tied ? (
+        <motion.span
+          initial={{ x: 40, opacity: 0, rotate: 12 }}
+          animate={{ x: 0, opacity: 1, rotate: -8 }}
+          className="absolute right-3 top-2 rounded bg-sky-200 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-sky-950"
+        >
+          TIE
+        </motion.span>
       ) : null}
       <div className="flex items-center gap-3">
         <span
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-md text-sm font-bold tabular-nums",
-            elected ? "bg-amber-300 text-emerald-950" : "bg-emerald-100 text-emerald-800",
+            elected ? "bg-amber-300 text-emerald-950" : tied ? "bg-sky-200 text-sky-950" : "bg-emerald-100 text-emerald-800",
           )}
         >
           {rank}
@@ -66,7 +78,7 @@ export function CandidateCard({
             alt=""
             className={cn(
               "size-12 rounded-full object-cover ring-2 md:size-14",
-              elected ? "ring-amber-400" : "ring-emerald-100",
+              elected ? "ring-amber-400" : tied ? "ring-sky-300" : "ring-emerald-100",
             )}
           />
         ) : (
@@ -75,7 +87,9 @@ export function CandidateCard({
               "flex size-12 items-center justify-center rounded-full text-sm font-semibold ring-2 md:size-14",
               elected
                 ? "bg-amber-200 text-emerald-950 ring-amber-400"
-                : "bg-emerald-100 text-emerald-800 ring-emerald-200",
+                : tied
+                  ? "bg-sky-100 text-sky-950 ring-sky-300"
+                  : "bg-emerald-100 text-emerald-800 ring-emerald-200",
             )}
           >
             {initials(candidate.name)}
@@ -92,13 +106,13 @@ export function CandidateCard({
           </div>
           <p className="text-xs text-muted-foreground">
             {candidate.panel_name ?? "Independent"}
-            {leading && !elected ? ` · Leading · Top ${seats}` : ""}
+            {tied ? " · Tied" : leading && !elected ? ` · Leading · Top ${seats}` : ""}
           </p>
           <div className="mt-2 h-3 overflow-hidden rounded-full bg-emerald-50">
             <motion.div
               className={cn(
                 "h-full rounded-full",
-                elected ? "bg-amber-400" : leading ? "bg-emerald-500" : "bg-slate-400",
+                elected ? "bg-amber-400" : tied ? "bg-sky-500" : leading ? "bg-emerald-500" : "bg-slate-400",
               )}
               initial={false}
               animate={{ width: `${width}%` }}
@@ -111,7 +125,7 @@ export function CandidateCard({
             value={candidate.votes}
             className={cn(
               "block text-3xl font-black tabular-nums leading-none md:text-4xl",
-              elected ? "text-amber-600" : "text-emerald-800",
+              elected ? "text-amber-600" : tied ? "text-sky-700" : "text-emerald-800",
             )}
           />
           {seats > 1 &&

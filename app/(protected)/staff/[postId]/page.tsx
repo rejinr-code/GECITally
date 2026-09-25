@@ -12,20 +12,40 @@ function cumulativeRoundScores(
   candidates: Candidate[],
   seats: number,
 ) {
+  const slotCount = Math.max(seats, 1);
   const running = new Map(candidates.map((candidate) => [candidate.id, 0]));
+  const runningCandidateSlots = new Map(
+    candidates.map((candidate) => [candidate.id, Array.from({ length: slotCount }, () => 0)]),
+  );
   let runningInvalid = 0;
-  let runningSlots: number[] = Array.from({ length: Math.max(seats, 1) }, () => 0);
+  let runningSlots: number[] = Array.from({ length: slotCount }, () => 0);
   const snapshots = new Map<
     string,
-    { entries: Array<CountEntry & { candidate_name: string }>; invalid: number; invalidSlots: number[] }
+    {
+      entries: Array<CountEntry & { candidate_name: string }>;
+      invalid: number;
+      invalidSlots: number[];
+    }
   >();
 
   for (const round of [...rounds].sort((a, b) => a.round_number - b.round_number)) {
     const next = new Map(running);
+    const nextCandidateSlots = new Map(
+      [...runningCandidateSlots.entries()].map(([id, marks]) => [id, [...marks]]),
+    );
     let nextInvalid = runningInvalid;
     const nextSlots = [...runningSlots];
     for (const entry of entries.filter((item) => item.round_id === round.id)) {
       next.set(entry.candidate_id, (next.get(entry.candidate_id) ?? 0) + entry.votes);
+      const marks = [...(nextCandidateSlots.get(entry.candidate_id) ?? Array.from({ length: slotCount }, () => 0))];
+      if (entry.slot_votes && entry.slot_votes.length > 0) {
+        for (let slot = 0; slot < slotCount; slot += 1) {
+          marks[slot] = (marks[slot] ?? 0) + (entry.slot_votes[slot] ?? 0);
+        }
+      } else if (slotCount <= 1) {
+        marks[0] = (marks[0] ?? 0) + entry.votes;
+      }
+      nextCandidateSlots.set(entry.candidate_id, marks);
     }
     nextInvalid += round.invalid_votes ?? 0;
     const roundSlots =
@@ -41,6 +61,7 @@ function cumulativeRoundScores(
         round_id: round.id,
         candidate_id: candidate.id,
         votes: next.get(candidate.id) ?? 0,
+        slot_votes: nextCandidateSlots.get(candidate.id),
         candidate_name: candidate.name,
       })),
       invalid: nextInvalid,
@@ -49,6 +70,8 @@ function cumulativeRoundScores(
     if (round.status !== "rejected") {
       running.clear();
       next.forEach((votes, id) => running.set(id, votes));
+      runningCandidateSlots.clear();
+      nextCandidateSlots.forEach((marks, id) => runningCandidateSlots.set(id, marks));
       runningInvalid = nextInvalid;
       runningSlots = nextSlots;
     }
@@ -118,21 +141,27 @@ export default async function StaffPostPage({
     candidateList,
     post.seats ?? 1,
   );
+  const latestCounted = (rounds ?? []).find(
+    (round) => round.status === "verified" || round.status === "pending_verification",
+  );
+  const resultSnapshot = latestCounted ? cumulative.get(latestCounted.id) : undefined;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link href="/staff" className="text-sm text-primary hover:underline">
+    <div className="flex min-h-0 flex-col gap-3 xl:h-[calc(100dvh-6.5rem)]">
+      <div className="shrink-0">
+        <Link href="/staff" className="text-xs text-primary hover:underline">
           Back to assigned posts
         </Link>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{post.name}</h1>
-        <p className="text-muted-foreground">
-          {election?.name} · {election?.count_limit} ballots per round
-          {post.seats > 1 ? ` · ${post.seats} votes per ballot` : ""}
-          {post.votes_polled ? ` · ${post.votes_polled} polled` : ""}
-        </p>
+        <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{post.name}</h1>
+          <p className="text-xs text-muted-foreground">
+            {election?.name} · {election?.count_limit} ballots per round
+            {post.seats > 1 ? ` · ${post.seats} votes per ballot` : ""}
+            {post.votes_polled ? ` · ${post.votes_polled} polled` : ""}
+          </p>
+        </div>
       </div>
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)]">
+      <div className="grid min-h-0 flex-1 items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
         <CountForm
           postId={postId}
           postName={post.name}
@@ -146,8 +175,21 @@ export default async function StaffPostPage({
           votesPolled={post.votes_polled ?? 0}
           countedBallots={countedBallots}
           seats={post.seats}
+          result={
+            resultSnapshot
+              ? {
+                  entries: resultSnapshot.entries.map((entry) => ({
+                    candidate_id: entry.candidate_id,
+                    votes: entry.votes,
+                    slot_votes: entry.slot_votes,
+                  })),
+                  invalid: resultSnapshot.invalid,
+                  invalidSlots: resultSnapshot.invalidSlots,
+                }
+              : undefined
+          }
         />
-        <aside className="flex min-h-[18rem] flex-col overflow-hidden rounded-xl border bg-card xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)]">
+        <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card xl:max-h-none">
           <div className="border-b px-4 py-3">
             <h2 className="text-sm font-semibold">Earlier rounds</h2>
           </div>

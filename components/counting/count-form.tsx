@@ -25,6 +25,9 @@ import {
   invalidSlotKey,
   marksToBallots,
   ordinalMark,
+  percent,
+  resolveSeats,
+  competitionRank,
 } from "@/lib/utils";
 
 const INVALID_KEY = "__invalid__";
@@ -63,6 +66,12 @@ function slotTheme(slot: number) {
   return SLOT_THEME[slot] ?? SLOT_THEME[SLOT_THEME.length - 1];
 }
 
+type CountResult = {
+  entries: Array<{ candidate_id: string; votes: number; slot_votes?: number[] }>;
+  invalid: number;
+  invalidSlots: number[];
+};
+
 type Props = {
   postId: string;
   postName: string;
@@ -76,6 +85,7 @@ type Props = {
   votesPolled: number;
   countedBallots: number;
   seats?: number;
+  result?: CountResult;
 };
 
 function emptyTally(candidates: Candidate[], seats: number) {
@@ -119,6 +129,7 @@ export function CountForm({
   votesPolled,
   countedBallots,
   seats = 1,
+  result,
 }: Props) {
   const marksPerBallot = ballotMarkCount(seats);
   const multiSeat = marksPerBallot > 1;
@@ -379,23 +390,163 @@ export function CountForm({
           },
         ]),
   ];
+  const compact = tableRows.length >= 6;
+  const countingFinished = postComplete && !waitingOnSupervisor;
+
+  if (countingFinished) {
+    const tallies = new Map((result?.entries ?? []).map((entry) => [entry.candidate_id, entry]));
+    const ranked = [...candidates]
+      .map((candidate) => ({
+        candidate,
+        votes: tallies.get(candidate.id)?.votes ?? 0,
+        slot_votes: tallies.get(candidate.id)?.slot_votes,
+      }))
+      .sort((a, b) => b.votes - a.votes);
+    const { elected, tied } = resolveSeats(ranked, seats, (row) => row.votes);
+    const electedIds = new Set(elected.map((row) => row.candidate.id));
+    const tiedIds = new Set(tied.map((row) => row.candidate.id));
+    const invalidSlots = result?.invalidSlots && result.invalidSlots.length > 1 ? result.invalidSlots : null;
+    const invalidTotal = result?.invalid ?? 0;
+    const candidateVotes = ranked.reduce((sum, row) => sum + row.votes, 0);
+
+    return (
+      <Card className="flex h-full min-h-0 flex-col gap-2 py-3">
+        <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-3 px-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+              Counting done
+            </p>
+            <CardTitle className="text-xl">Results · {postName}</CardTitle>
+          </div>
+          <Badge className="bg-emerald-700 text-white">Done</Badge>
+        </CardHeader>
+        <CardContent className="flex min-h-0 flex-1 flex-col space-y-2 px-4">
+          <p className="shrink-0 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+            All {formatNumber(votesPolled)} ballots have been counted. No further rounds are needed.
+            {tied.length > 0
+              ? ` ${tied.length} candidates are tied for the remaining seat${seats - elected.length === 1 ? "" : "s"}.`
+              : ""}
+          </p>
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-emerald-100">
+            {ranked.map((row, index) => {
+              const elected = electedIds.has(row.candidate.id);
+              const tiedForSeat = tiedIds.has(row.candidate.id);
+              const classLabel = candidateClassLabel(
+                row.candidate.branch,
+                row.candidate.year,
+                row.candidate.semester,
+              );
+              const share = percent(row.votes, candidateVotes);
+              const rank = competitionRank(ranked, index, (item) => item.votes);
+              return (
+                <div
+                  key={row.candidate.id}
+                  className={cn(
+                    "flex items-center gap-3 border-b px-3 py-1.5 last:border-b-0 sm:grid sm:grid-cols-[2rem_minmax(0,1fr)_auto]",
+                    elected && "bg-amber-50",
+                    tiedForSeat && "bg-sky-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-7 shrink-0 items-center justify-center rounded-md text-xs font-bold tabular-nums",
+                      elected
+                        ? "bg-amber-300 text-emerald-950"
+                        : tiedForSeat
+                          ? "bg-sky-200 text-sky-950"
+                          : "bg-emerald-100 text-emerald-800",
+                    )}
+                  >
+                    {rank}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-emerald-950">
+                      {row.candidate.name}
+                      {elected ? (
+                        <span className="ml-2 rounded bg-amber-300 px-1.5 py-0.5 text-[9px] font-black tracking-[0.16em] text-emerald-950">
+                          ELECTED
+                        </span>
+                      ) : null}
+                      {tiedForSeat ? (
+                        <span className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-[9px] font-black tracking-[0.16em] text-sky-950">
+                          TIE
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {[row.candidate.panel_name || "Independent", classLabel].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p
+                      className={cn(
+                        "text-xl font-black tabular-nums leading-none",
+                        elected ? "text-amber-700" : tiedForSeat ? "text-sky-800" : "text-emerald-800",
+                      )}
+                    >
+                      {formatNumber(row.votes)}
+                    </p>
+                    {multiSeat &&
+                    (row.slot_votes?.length ?? 0) > 1 &&
+                    row.slot_votes!.reduce((sum, count) => sum + count, 0) === row.votes ? (
+                      <p className="mt-0.5 text-[9px] font-semibold tabular-nums">
+                        {row.slot_votes!.map((count, slot) => (
+                          <span key={slot} className={cn(slot === 0 ? "text-emerald-700" : "text-sky-700")}>
+                            {slot > 0 ? " · " : null}
+                            {ordinalMark(slot)} {formatNumber(count)}
+                          </span>
+                        ))}
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-[10px] tabular-nums text-emerald-600">{share}% share</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {invalidSlots
+              ? invalidSlots.map((votes, slot) => (
+                  <div
+                    key={`invalid-${slot}`}
+                    className="flex items-center justify-between gap-3 border-t border-red-100 bg-red-50 px-3 py-1.5"
+                  >
+                    <p className="text-sm font-semibold text-red-900">Invalid {ordinalMark(slot)}</p>
+                    <p className="text-xl font-black tabular-nums text-red-700">{formatNumber(votes)}</p>
+                  </div>
+                ))
+              : (
+                  <div className="flex items-center justify-between gap-3 border-t border-red-100 bg-red-50 px-3 py-1.5">
+                    <p className="text-sm font-semibold text-red-900">Invalid</p>
+                    <p className="text-xl font-black tabular-nums text-red-700">{formatNumber(invalidTotal)}</p>
+                  </div>
+                )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
+    <Card className={cn("h-full min-h-0", compact && "gap-2 py-3")}>
+      <CardHeader className={cn("flex shrink-0 flex-row items-start justify-between gap-3", compact && "px-4")}>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Counting now
               </p>
-              <CardTitle className="text-2xl">Round {roundNumber}</CardTitle>
+              <CardTitle className={compact ? "text-xl" : "text-2xl"}>Round {roundNumber}</CardTitle>
             </div>
             <div className="text-right">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Ballots
               </p>
-              <p className="text-3xl font-black tabular-nums leading-none text-emerald-800">
+              <p
+                className={cn(
+                  "font-black tabular-nums leading-none text-emerald-800",
+                  compact ? "text-2xl" : "text-3xl",
+                )}
+              >
                 {formatNumber(total)}
                 <span className="text-lg font-semibold text-muted-foreground">
                   {roundCap > 0 ? ` / ${formatNumber(roundCap)}` : ""}
@@ -403,16 +554,22 @@ export function CountForm({
               </p>
             </div>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {multiSeat
-              ? `Each ballot names ${marksPerBallot} candidates. Vote a candidate for the ${ordinalMark(0)} mark, then another for the ${ordinalMark(1)}${marksPerBallot > 2 ? ", and so on" : ""}. If a mark is spoilt, use that mark's Invalid row instead. The same candidate cannot be marked twice.`
-              : "Use Vote on a row, then Confirm to mark the count so far. Do not type numbers. Invalid ballots count toward the round, not toward a candidate"}
-            {isLastRound ? `. This last round has ${formatNumber(roundCap)} remaining.` : multiSeat ? "" : "."}
-          </p>
+          {!compact ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {multiSeat
+                ? `Each ballot names ${marksPerBallot} candidates. Vote a candidate for the ${ordinalMark(0)} mark, then another for the ${ordinalMark(1)}${marksPerBallot > 2 ? ", and so on" : ""}. If a mark is spoilt, use that mark's Invalid row instead. The same candidate cannot be marked twice.`
+                : "Use Vote on a row, then Confirm to mark the count so far. Do not type numbers. Invalid ballots count toward the round, not toward a candidate"}
+              {isLastRound ? `. This last round has ${formatNumber(roundCap)} remaining.` : multiSeat ? "" : "."}
+            </p>
+          ) : isLastRound ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              This last round has {formatNumber(roundCap)} remaining.
+            </p>
+          ) : null}
           {multiSeat && !blocked && !postComplete ? (
-            <div className={cn("mt-3 overflow-hidden rounded-xl border", theme.panel)}>
+            <div className={cn("mt-2 overflow-hidden rounded-xl border", theme.panel)}>
               <div className={cn("h-1.5", theme.bar)} />
-              <div className="px-3 py-2.5">
+              <div className={cn("px-3", compact ? "py-1.5" : "py-2.5")}>
               <div className="flex flex-wrap items-center gap-2">
                 {Array.from({ length: marksPerBallot }, (_, slot) => {
                   const slotStyle = slotTheme(slot);
@@ -438,7 +595,7 @@ export function CountForm({
                   );
                 })}
               </div>
-              <p className={cn("mt-2 text-sm font-semibold", theme.text)}>
+              <p className={cn(compact ? "mt-1 text-xs font-semibold" : "mt-2 text-sm font-semibold", theme.text)}>
                 Select the {ordinalMark(activeSlot)} candidate
                 {fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid{" "}
                 {ordinalMark(activeSlot)} only if that mark is spoilt.
@@ -454,34 +611,39 @@ export function CountForm({
         {isLastRound && !waitingOnSupervisor && !rejectedRound && (
           <Badge variant="outline">Last round</Badge>
         )}
+        {postComplete && waitingOnSupervisor ? (
+          <Badge className="bg-emerald-700 text-white">All ballots in</Badge>
+        ) : null}
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className={cn("flex min-h-0 flex-1 flex-col", compact ? "space-y-2 px-4" : "space-y-4")}>
         {rejectedRound?.remarks && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p className={cn("rounded-md bg-red-50 text-sm text-red-800", compact ? "px-3 py-1.5" : "px-3 py-2")}>
             Returning Officer remarks: {rejectedRound.remarks}
           </p>
         )}
         {!countingOpen && (
-          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className={cn("rounded-md bg-amber-50 text-sm text-amber-800", compact ? "px-3 py-1.5" : "px-3 py-2")}>
             Counting is closed. Wait for the admin to open it.
           </p>
         )}
-        {postComplete && (
-          <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            All {formatNumber(votesPolled)} ballots for this post have been counted.
+        {postComplete && waitingOnSupervisor ? (
+          <p className={cn("rounded-md bg-emerald-50 text-sm text-emerald-800", compact ? "px-3 py-1.5" : "px-3 py-2")}>
+            All {formatNumber(votesPolled)} ballots are in. Counting is done after Returning Officer
+            verification.
           </p>
-        )}
+        ) : null}
 
-        <div className="flex items-stretch gap-3">
+        <div className="flex min-h-0 flex-1 items-stretch gap-3">
           <div
             className={cn(
-              "min-w-0 flex-1 overflow-hidden rounded-xl border",
+              "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto rounded-xl border",
               multiSeat && theme.panel,
             )}
           >
             <div
               className={cn(
-                "hidden grid-cols-[minmax(0,1.15fr)_minmax(5.5rem,0.7fr)_5.5rem_6.5rem] gap-3 border-b px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] sm:grid",
+                "hidden shrink-0 grid-cols-[minmax(0,1.15fr)_minmax(5.5rem,0.7fr)_5.5rem_4.75rem] gap-3 border-b px-4 text-[11px] font-semibold uppercase tracking-[0.16em] sm:grid",
+                compact ? "py-1" : "py-2",
                 multiSeat ? cn("border-transparent", theme.muted) : "bg-slate-50 text-muted-foreground",
               )}
             >
@@ -504,7 +666,8 @@ export function CountForm({
                 <div
                   key={row.id}
                   className={cn(
-                    "flex items-center gap-3 border-b px-3 py-2.5 last:border-b-0 sm:grid sm:grid-cols-[minmax(0,1.15fr)_minmax(5.5rem,0.7fr)_5.5rem_6.5rem] sm:px-4",
+                    "flex items-center gap-3 border-b last:border-b-0 sm:grid sm:grid-cols-[minmax(0,1.15fr)_minmax(5.5rem,0.7fr)_5.5rem_4.75rem]",
+                    compact ? "min-h-[2.15rem] flex-1 px-3 py-0.5 sm:px-3" : "px-3 py-2 sm:px-4",
                     invalidActive && "bg-red-50",
                     isLast && !row.invalid && (lastTheme?.last ?? "bg-emerald-50/80"),
                     alreadyOnBallot && "opacity-60",
@@ -513,7 +676,8 @@ export function CountForm({
                 >
                   <p
                     className={cn(
-                      "min-w-0 truncate text-base font-semibold leading-tight",
+                      "min-w-0 truncate font-semibold leading-tight",
+                      compact ? "text-sm" : "text-base",
                       invalidActive ? "text-red-900" : "text-emerald-950",
                     )}
                   >
@@ -521,23 +685,25 @@ export function CountForm({
                   </p>
                   <p
                     className={cn(
-                      "min-w-0 truncate text-sm",
+                      "min-w-0 truncate",
+                      compact ? "text-xs" : "text-sm",
                       invalidActive ? "text-red-700" : "text-muted-foreground",
                     )}
                   >
                     {[row.panel, row.classLabel].filter(Boolean).join(" · ")}
                   </p>
-                  <div className="shrink-0 text-right">
+                  <div className={cn("shrink-0 text-right", compact && "flex items-baseline justify-end gap-1.5")}>
                     <p
                       className={cn(
-                        "text-2xl font-black tabular-nums leading-none",
+                        "font-black tabular-nums leading-none",
+                        compact ? "text-xl" : "text-2xl",
                         invalidActive ? "text-red-700" : "text-emerald-800",
                       )}
                     >
                       {formatNumber(shown)}
                     </p>
                     {multiSeat && !row.invalid ? (
-                      <p className="mt-0.5 text-[10px] font-semibold tabular-nums">
+                      <p className={cn("font-semibold tabular-nums", compact ? "text-[9px]" : "mt-0.5 text-[10px]")}>
                         {(candidateSlots[row.id] ?? []).map((count, slot) => {
                           const pending = pendingCandidateSlots[row.id]?.[slot] ?? 0;
                           return (
@@ -549,7 +715,7 @@ export function CountForm({
                         })}
                       </p>
                     ) : row.pending > 0 ? (
-                      <p className="mt-0.5 text-[11px] font-semibold text-amber-700">
+                      <p className={cn("font-semibold text-amber-700", compact ? "text-[10px]" : "mt-0.5 text-[11px]")}>
                         +{formatNumber(row.pending)} queued
                       </p>
                     ) : null}
@@ -557,11 +723,11 @@ export function CountForm({
                   <div className="shrink-0 sm:text-right">
                     <Button
                       type="button"
-                      size="lg"
+                      size="sm"
                       variant={row.invalid ? "destructive" : "default"}
                       disabled={voteDisabled}
                       className={cn(
-                        "w-[5.75rem]",
+                        "h-7 w-[3.75rem] px-2 text-xs",
                         !row.invalid && multiSeat && theme.vote,
                       )}
                       onClick={() => queueVote(row.id)}
@@ -578,7 +744,8 @@ export function CountForm({
               type="button"
               size="lg"
               className={cn(
-                "min-h-[10rem] flex-1 px-3 whitespace-normal",
+                "flex-1 px-3 whitespace-normal",
+                compact ? "min-h-0" : "min-h-[10rem]",
                 roundFull &&
                   canConfirmQueued &&
                   "bg-amber-500 text-emerald-950 hover:bg-amber-400 ring-4 ring-amber-300 ring-offset-2",
@@ -601,7 +768,7 @@ export function CountForm({
         </div>
 
         {error && <p className="text-sm text-red-700">{error}</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-foreground">
               Last vote:{" "}

@@ -6,7 +6,7 @@ import { CandidateCard } from "@/components/results/candidate-card";
 import { LiveCounter } from "@/components/results/live-counter";
 import { WinnerBurst } from "@/components/results/winner-burst";
 import type { ElectionState, LivePost } from "@/lib/types";
-import { formatNumber, liveCountedBallots, ordinalMark, percent } from "@/lib/utils";
+import { formatNumber, liveCountedBallots, ordinalMark, percent, resolveSeats, competitionRank } from "@/lib/utils";
 
 const SLICE_COLORS = [
   "#059669",
@@ -42,7 +42,10 @@ export function PostSection({
   const countedBallots = liveCountedBallots(post);
   const votesPolled = post.votes_polled ?? 0;
   const declared = post.is_finalised || electionState === "finalised";
-  const winners = declared ? ranked.slice(0, post.seats).filter((candidate) => candidate.votes > 0) : [];
+  const { elected, tied } = resolveSeats(ranked, post.seats, (candidate) => candidate.votes);
+  const winners = declared ? elected : [];
+  const tiedDeclared = declared ? tied : [];
+  const leadingIds = new Set([...elected, ...tied].map((candidate) => candidate.id));
   const chartData = [
     ...ranked.map((candidate, index) => ({
       name: candidate.name,
@@ -78,7 +81,9 @@ export function PostSection({
       animate={{ boxShadow: flashKey ? "0 0 0 4px rgba(16,185,129,0.22)" : "0 1px 2px rgba(0,0,0,0.04)" }}
       transition={{ duration: 0.8 }}
     >
-      {winners.length > 0 ? <WinnerBurst postId={post.id} winners={winners} seats={post.seats} /> : null}
+      {winners.length > 0 || tiedDeclared.length > 0 ? (
+        <WinnerBurst postId={post.id} winners={winners} tied={tiedDeclared} seats={post.seats} />
+      ) : null}
 
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -145,18 +150,23 @@ export function PostSection({
           }
         >
           <AnimatePresence>
-            {ranked.map((candidate, index) => (
+            {ranked.map((candidate, index) => {
+              const isElected = winners.some((winner) => winner.id === candidate.id);
+              const isTied = tiedDeclared.some((item) => item.id === candidate.id);
+              return (
               <CandidateCard
                 key={candidate.id}
                 candidate={candidate}
-                rank={index + 1}
-                leading={index < post.seats && candidate.votes > 0}
-                elected={winners.some((winner) => winner.id === candidate.id)}
+                rank={competitionRank(ranked, index, (item) => item.votes)}
+                leading={!declared && leadingIds.has(candidate.id)}
+                elected={isElected}
+                tied={isTied}
                 maxVotes={maxVotes}
                 seats={post.seats}
                 share={percent(candidate.votes, candidateVotes)}
               />
-            ))}
+              );
+            })}
             {invalidSlots ? (
               invalidSlots.map((votes, slot) => (
                 <InvalidVotesCard

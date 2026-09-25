@@ -79,6 +79,38 @@ export function parsePositiveInt(value: unknown, fallback = 0) {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
+export function resolveSeats<T>(
+  ranked: T[],
+  seats: number,
+  getVotes: (item: T) => number,
+): { elected: T[]; tied: T[] } {
+  const elected: T[] = [];
+  const tied: T[] = [];
+  let remaining = Math.max(0, seats);
+  let index = 0;
+  while (index < ranked.length && remaining > 0) {
+    const votes = getVotes(ranked[index]);
+    if (votes <= 0) break;
+    let end = index + 1;
+    while (end < ranked.length && getVotes(ranked[end]) === votes) end += 1;
+    const group = ranked.slice(index, end);
+    if (group.length <= remaining) {
+      elected.push(...group);
+      remaining -= group.length;
+    } else {
+      tied.push(...group);
+      remaining = 0;
+    }
+    index = end;
+  }
+  return { elected, tied };
+}
+
+export function competitionRank<T>(ranked: T[], index: number, getVotes: (item: T) => number) {
+  const votes = getVotes(ranked[index]);
+  return ranked.findIndex((item) => getVotes(item) === votes) + 1;
+}
+
 export function ballotMarkCount(seats: number | null | undefined) {
   return Math.max(1, seats ?? 1);
 }

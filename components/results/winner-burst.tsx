@@ -20,10 +20,12 @@ const CONFETTI = Array.from({ length: 28 }, (_, index) => ({
 export function WinnerBurst({
   postId,
   winners,
+  tied = [],
   seats,
 }: {
   postId: string;
   winners: LiveCandidate[];
+  tied?: LiveCandidate[];
   seats: number;
 }) {
   const [visible, setVisible] = useState(true);
@@ -34,10 +36,11 @@ export function WinnerBurst({
     return () => window.clearTimeout(timer);
   }, [postId]);
 
-  if (!winners.length || !visible) return null;
+  if ((!winners.length && !tied.length) || !visible) return null;
 
-  const multi = winners.length > 1;
-  const headline = seats > 1 ? "ELECTED" : "WINS";
+  const multi = winners.length + tied.length > 1;
+  const headline = tied.length && !winners.length ? "TIE" : seats > 1 ? "ELECTED" : "WINS";
+  const remainingSeats = Math.max(0, seats - winners.length);
 
   return (
     <motion.div
@@ -67,7 +70,7 @@ export function WinnerBurst({
         transition={{ type: "spring", stiffness: 160, damping: 14 }}
       >
         <p className="text-xs font-semibold tracking-[0.45em] text-amber-600">RESULT DECLARED</p>
-        {multi ? (
+        {multi || tied.length > 0 ? (
           <>
             <p
               className="mt-2 bg-[linear-gradient(90deg,#b45309,#ca8a04,#f59e0b,#b45309)] bg-[length:200%_100%] bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
@@ -75,16 +78,41 @@ export function WinnerBurst({
             >
               {headline}
             </p>
-            <div
-              className={cn(
-                "mt-5 grid w-full max-w-3xl items-start justify-items-center gap-6",
-                winners.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3",
-              )}
-            >
-              {winners.map((winner, index) => (
-                <WinnerPortrait key={winner.id} winner={winner} index={index} compact={winners.length > 2} />
-              ))}
-            </div>
+            {winners.length > 0 ? (
+              <div
+                className={cn(
+                  "mt-5 grid w-full max-w-3xl items-start justify-items-center gap-6",
+                  winners.length === 1 ? "grid-cols-1" : winners.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3",
+                )}
+              >
+                {winners.map((winner, index) => (
+                  <WinnerPortrait key={winner.id} winner={winner} index={index} compact={winners.length + tied.length > 2} />
+                ))}
+              </div>
+            ) : null}
+            {tied.length > 0 ? (
+              <>
+                <p className="mt-4 text-xs font-black tracking-[0.28em] text-sky-700">
+                  TIE FOR {remainingSeats || seats} SEAT{remainingSeats === 1 ? "" : "S"}
+                </p>
+                <div
+                  className={cn(
+                    "mt-3 grid w-full max-w-3xl items-start justify-items-center gap-6",
+                    tied.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                  )}
+                >
+                  {tied.map((candidate, index) => (
+                    <WinnerPortrait
+                      key={candidate.id}
+                      winner={candidate}
+                      index={winners.length + index}
+                      compact
+                      tied
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
           </>
         ) : (
           <div className="mt-4 flex items-center gap-4">
@@ -112,7 +140,7 @@ function winnerDetail(winner: LiveCandidate) {
     .join(" · ");
 }
 
-function WinnerFace({ winner, compact = false }: { winner: LiveCandidate; compact?: boolean }) {
+function WinnerFace({ winner, compact = false, tied = false }: { winner: LiveCandidate; compact?: boolean; tied?: boolean }) {
   if (winner.photo_url) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -120,7 +148,8 @@ function WinnerFace({ winner, compact = false }: { winner: LiveCandidate; compac
         src={winner.photo_url}
         alt=""
         className={cn(
-          "rounded-full object-cover ring-4 ring-amber-400",
+          "rounded-full object-cover ring-4",
+          tied ? "ring-sky-400" : "ring-amber-400",
           compact ? "size-16 md:size-20" : "size-20 md:size-24",
         )}
       />
@@ -130,7 +159,8 @@ function WinnerFace({ winner, compact = false }: { winner: LiveCandidate; compac
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-full bg-amber-300 font-bold text-emerald-950 ring-4 ring-emerald-800",
+        "flex items-center justify-center rounded-full font-bold ring-4",
+        tied ? "bg-sky-200 text-sky-950 ring-sky-600" : "bg-amber-300 text-emerald-950 ring-emerald-800",
         compact ? "size-16 text-xl md:size-20" : "size-20 text-2xl md:size-24",
       )}
     >
@@ -149,10 +179,12 @@ function WinnerPortrait({
   winner,
   index,
   compact = false,
+  tied = false,
 }: {
   winner: LiveCandidate;
   index: number;
   compact?: boolean;
+  tied?: boolean;
 }) {
   return (
     <motion.div
@@ -161,7 +193,7 @@ function WinnerPortrait({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.12 + index * 0.08, type: "spring", stiffness: 180, damping: 16 }}
     >
-      <WinnerFace winner={winner} compact={compact} />
+      <WinnerFace winner={winner} compact={compact} tied={tied} />
       <p className={cn("mt-3 font-semibold text-emerald-950", compact ? "text-lg md:text-xl" : "text-2xl md:text-3xl")}>
         {winner.name}
       </p>

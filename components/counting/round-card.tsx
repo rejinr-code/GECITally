@@ -1,5 +1,5 @@
 import type { CountEntry, CountRound } from "@/lib/types";
-import { cn, formatNumber, ordinalMark } from "@/lib/utils";
+import { cn, formatNumber, ordinalMark, resolveSeats } from "@/lib/utils";
 
 const STATUS: Record<CountRound["status"], string> = {
   pending_verification: "Pending",
@@ -29,10 +29,9 @@ export function RoundCard({
         : null;
   const total = entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
   const ranked = [...entries].sort((a, b) => b.votes - a.votes);
-  const cutoff = ranked[Math.max(0, seats - 1)]?.votes ?? 0;
-  const winners = new Set(
-    ranked.filter((entry) => entry.votes > 0 && entry.votes >= cutoff).map((entry) => entry.candidate_id),
-  );
+  const { elected, tied } = resolveSeats(ranked, seats, (entry) => entry.votes);
+  const electedIds = new Set(elected.map((entry) => entry.candidate_id));
+  const tiedIds = new Set(tied.map((entry) => entry.candidate_id));
 
   return (
     <div className="border-b border-border/70 py-2.5 last:border-b-0">
@@ -58,7 +57,8 @@ export function RoundCard({
             {index > 0 ? " · " : null}
             <span
               className={cn(
-                winners.has(entry.candidate_id) && "font-semibold text-emerald-800",
+                electedIds.has(entry.candidate_id) && "font-semibold text-emerald-800",
+                tiedIds.has(entry.candidate_id) && "font-semibold text-sky-800",
               )}
             >
               {entry.candidate_name} {formatNumber(entry.votes)}
