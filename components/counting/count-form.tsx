@@ -120,6 +120,17 @@ export function CountForm({
     setSubmitOpen(true);
   }
 
+  function recountRound() {
+    if (isSubmitting) return;
+    setSubmitOpen(false);
+    setLimitOpen(false);
+    setPendingCandidateId(null);
+    setVotes(emptyTally(candidates));
+    setLastId(null);
+    setError(null);
+    toast.message("Round cleared. Count this round again.");
+  }
+
   async function confirmSubmit() {
     await run(async () => {
       const result = await submitCountRound(
@@ -257,7 +268,10 @@ export function CountForm({
               Review and submit this round.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap">
+            <Button type="button" variant="outline" onClick={recountRound}>
+              Recount
+            </Button>
             <Button type="button" variant="outline" onClick={() => setLimitOpen(false)}>
               Close
             </Button>
@@ -300,7 +314,10 @@ export function CountForm({
           </ul>
           <p className="border-t pt-3 text-sm font-semibold">Total ballots: {formatNumber(total)}. Confirm?</p>
           {error && <p className="text-sm text-red-700">{error}</p>}
-          <DialogFooter>
+          <DialogFooter className="flex-wrap">
+            <Button type="button" variant="outline" disabled={isSubmitting} onClick={recountRound}>
+              Recount
+            </Button>
             <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => setSubmitOpen(false)}>
               Cancel
             </Button>
