@@ -154,6 +154,7 @@ export default async function StaffPostPage({
                     round={round as CountRound}
                     entries={snapshot?.entries ?? []}
                     invalidVotes={snapshot?.invalid}
+                    seats={post.seats}
                   />
                 );
               })

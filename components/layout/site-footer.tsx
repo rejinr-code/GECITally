@@ -3,26 +3,28 @@ import { cn } from "@/lib/utils";
 export function SiteFooter({ className }: { className?: string }) {
   return (
     <footer className={cn("mt-auto border-t border-emerald-900/20 bg-emerald-950 text-white", className)}>
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-7 sm:flex-row sm:items-center sm:justify-between sm:gap-10 sm:py-8">
-        <div className="flex items-center gap-4">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2">
+        <div className="flex min-w-0 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/mulearn-logo.png"
             alt="µLearn IDK"
-            className="h-16 w-auto shrink-0 rounded-lg bg-black object-contain ring-1 ring-amber-300/35"
+            className="h-8 w-auto shrink-0 rounded-md bg-black object-contain ring-1 ring-amber-300/35"
           />
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-300">
+          <p className="truncate text-xs sm:text-sm">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">
               Project developed by
-            </p>
-            <p className="mt-1 text-xl font-semibold tracking-tight">µLearn GECI</p>
-          </div>
+            </span>{" "}
+            <span className="font-semibold">µLearn GECI</span>
+          </p>
         </div>
-        <div className="sm:max-w-md sm:text-right">
-          <p className="text-base font-semibold tracking-tight">Prof. Rejin R</p>
-          <p className="mt-0.5 text-sm text-emerald-100/85">Asst. Professor in IT</p>
-          <p className="text-sm font-medium text-amber-200">Campus Lead Enabler, µLearn GECI</p>
-        </div>
+        <p className="hidden min-w-0 truncate text-right text-xs text-emerald-100/90 sm:block">
+          <span className="font-semibold text-white">Prof. Rejin R</span>
+          <span className="mx-1.5 text-emerald-400">·</span>
+          Asst. Professor in IT
+          <span className="mx-1.5 text-emerald-400">·</span>
+          <span className="font-medium text-amber-200">Campus Lead Enabler, µLearn GECI</span>
+        </p>
       </div>
     </footer>
   );

@@ -11,17 +11,20 @@ export function RoundCard({
   round,
   entries,
   invalidVotes,
+  seats = 1,
 }: {
   round: CountRound;
   entries: Array<CountEntry & { candidate_name: string }>;
   invalidVotes?: number;
+  seats?: number;
 }) {
   const invalid = invalidVotes ?? round.invalid_votes ?? 0;
   const total = entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
-  const counts = [
-    ...entries.map((entry) => `${entry.candidate_name} ${formatNumber(entry.votes)}`),
-    `Invalid ${formatNumber(invalid)}`,
-  ].join(" · ");
+  const ranked = [...entries].sort((a, b) => b.votes - a.votes);
+  const cutoff = ranked[Math.max(0, seats - 1)]?.votes ?? 0;
+  const winners = new Set(
+    ranked.filter((entry) => entry.votes > 0 && entry.votes >= cutoff).map((entry) => entry.candidate_id),
+  );
 
   return (
     <div className="border-b border-border/70 py-2.5 last:border-b-0">
@@ -41,7 +44,24 @@ export function RoundCard({
         </p>
         <p className="text-sm font-semibold tabular-nums">{formatNumber(total)}</p>
       </div>
-      <p className="mt-0.5 truncate text-xs text-muted-foreground">{counts}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {entries.map((entry, index) => (
+          <span key={entry.id}>
+            {index > 0 ? " · " : null}
+            <span
+              className={cn(
+                winners.has(entry.candidate_id) && "font-semibold text-emerald-800",
+              )}
+            >
+              {entry.candidate_name} {formatNumber(entry.votes)}
+            </span>
+          </span>
+        ))}
+        <span>
+          {" · "}
+          Invalid {formatNumber(invalid)}
+        </span>
+      </p>
       {round.remarks ? <p className="mt-1 text-xs text-red-700">{round.remarks}</p> : null}
     </div>
   );
