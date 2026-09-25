@@ -8,7 +8,10 @@ import type { UserRole } from "@/lib/types";
 import { cn, roleHome, roleLabel } from "@/lib/utils";
 
 const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
-  admin: [{ href: "/admin", label: "Dashboard" }],
+  admin: [
+    { href: "/admin", label: "Dashboard" },
+    { href: "/results", label: "Live results" },
+  ],
   staff: [
     { href: "/staff", label: "Counting Supervisor" },
     { href: "/results", label: "Live results" },

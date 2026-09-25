@@ -63,7 +63,7 @@ export function roleHome(role: string | null | undefined) {
 }
 
 export function canViewResults(role: string | null | undefined) {
-  return role === "staff" || role === "supervisor" || role === "display";
+  return role === "admin" || role === "staff" || role === "supervisor" || role === "display";
 }
 
 export function roleLabel(role: string | null | undefined) {

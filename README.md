@@ -83,7 +83,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `/staff` | Counting Supervisor | Enter per-candidate and invalid counts for assigned posts; open live results |
 | `/supervisor` | Returning Officer | Verify or reject submitted rounds; open live results |
 | `/results/login` | Public results | Dedicated hall / public results login |
-| `/results` | Counting Supervisor, Returning Officer, Public results | Live animated results (login required) |
+| `/results` | Admin, Counting Supervisor, Returning Officer, Public results | Live animated results (login required) |
 
 ## Counting rules
 
