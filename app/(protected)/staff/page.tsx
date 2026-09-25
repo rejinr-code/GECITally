@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { StaffPostLink } from "@/components/counting/staff-post-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -73,7 +73,7 @@ export default async function StaffHomePage() {
               }, 0);
             const polled = post.votes_polled ?? 0;
             return (
-              <Link key={post.id} href={`/staff/${post.id}`}>
+              <StaffPostLink key={post.id} href={`/staff/${post.id}`}>
                 <Card className="h-full transition hover:border-primary/40 hover:shadow-md">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between gap-2">
@@ -98,7 +98,7 @@ export default async function StaffHomePage() {
                     </p>
                   </CardContent>
                 </Card>
-              </Link>
+              </StaffPostLink>
             );
           })}
         </div>

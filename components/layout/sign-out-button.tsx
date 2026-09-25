@@ -1,13 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
+function clearBrowserAuthCookies() {
+  const cookies = document.cookie.split(";");
+  for (const cookie of cookies) {
+    const name = cookie.split("=")[0]?.trim();
+    if (!name.startsWith("sb-")) continue;
+    document.cookie = `${name}=; Max-Age=0; path=/`;
+  }
+}
+
 export function SignOutButton({ href = "/login" }: { href?: string }) {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   return (
@@ -22,12 +29,15 @@ export function SignOutButton({ href = "/login" }: { href?: string }) {
         void (async () => {
           try {
             const supabase = createClient();
-            await supabase.auth.signOut({ scope: "local" });
+            await Promise.race([
+              supabase.auth.signOut({ scope: "local" }),
+              new Promise<void>((resolve) => window.setTimeout(resolve, 400)),
+            ]);
           } catch {
-            // Still leave the signed-in UI.
+            // Leave even if the auth call is slow or fails.
           }
-          router.replace(href);
-          router.refresh();
+          clearBrowserAuthCookies();
+          window.location.assign(href);
         })();
       }}
     >

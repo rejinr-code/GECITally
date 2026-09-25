@@ -68,34 +68,28 @@ export default async function StaffPostPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: assignment } = await supabase
-    .from("staff_assignments")
-    .select("id")
-    .eq("staff_id", user?.id ?? "")
-    .eq("post_id", postId)
-    .maybeSingle();
+  const [{ data: assignment }, { data: post }] = await Promise.all([
+    supabase
+      .from("staff_assignments")
+      .select("id")
+      .eq("staff_id", user?.id ?? "")
+      .eq("post_id", postId)
+      .maybeSingle(),
+    supabase.from("posts").select("*").eq("id", postId).maybeSingle(),
+  ]);
 
-  if (!assignment) notFound();
+  if (!assignment || !post) notFound();
 
-  const { data: post } = await supabase.from("posts").select("*").eq("id", postId).single();
-  if (!post) notFound();
-
-  const { data: election } = await supabase
-    .from("elections")
-    .select("*")
-    .eq("id", post.election_id)
-    .maybeSingle();
-  const { data: candidates } = await supabase
-    .from("candidates")
-    .select("*")
-    .eq("post_id", postId)
-    .order("display_order");
-  const { data: rounds } = await supabase
-    .from("count_rounds")
-    .select("*")
-    .eq("post_id", postId)
-    .eq("staff_id", user?.id ?? "")
-    .order("round_number", { ascending: false });
+  const [{ data: election }, { data: candidates }, { data: rounds }] = await Promise.all([
+    supabase.from("elections").select("*").eq("id", post.election_id).maybeSingle(),
+    supabase.from("candidates").select("*").eq("post_id", postId).order("display_order"),
+    supabase
+      .from("count_rounds")
+      .select("*")
+      .eq("post_id", postId)
+      .eq("staff_id", user?.id ?? "")
+      .order("round_number", { ascending: false }),
+  ]);
 
   const roundIds = (rounds ?? []).map((round) => round.id);
   const { data: entries } = roundIds.length
