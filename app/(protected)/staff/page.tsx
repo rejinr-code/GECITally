@@ -48,7 +48,7 @@ export default async function StaffHomePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Counting duty</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Counting Supervisor</h1>
         <p className="mt-1 text-muted-foreground">
           {election ? `${election.name} · state: ${election.state}` : "No election configured."}
         </p>
@@ -79,7 +79,7 @@ export default async function StaffHomePage() {
                     <CardTitle className="flex items-center justify-between gap-2">
                       {post.name}
                       {requireSupervisor && pending && (
-                        <Badge variant="warning">Awaiting verification</Badge>
+                        <Badge variant="warning">Awaiting Returning Officer verification</Badge>
                       )}
                       {rejected && !pending && <Badge variant="destructive">Rejected</Badge>}
                     </CardTitle>

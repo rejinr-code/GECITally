@@ -2,7 +2,7 @@
 
 Official student election counting system for **Government Engineering College Idukki**.
 
-Staff enter vote counts, a supervisor verifies each round, and hall results open only after a supervisor or public-results login.
+Counting Supervisors enter vote counts, a Returning Officer verifies each round, and hall results open only after a Returning Officer or public-results login.
 
 ## Stack
 
@@ -64,7 +64,7 @@ update public.profiles
  where id = '<auth-user-uuid>';
 ```
 
-Staff, supervisor, and public results display accounts should be created from `/admin` so roles and post assignments are applied correctly.
+Counting Supervisor, Returning Officer, and public results display accounts should be created from `/admin` so roles and post assignments are applied correctly.
 
 ### 5. Run the app
 
@@ -79,18 +79,18 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Path | Role | Purpose |
 |---|---|---|
-| `/admin` | admin | Panels, posts, candidates, staff, count limit, live display, election state |
-| `/staff` | staff | Enter per-candidate and invalid counts for assigned posts; open live results |
-| `/supervisor` | supervisor | Verify or reject submitted rounds; open live results |
-| `/results/login` | display | Dedicated hall / public results login |
-| `/results` | staff, supervisor, display | Live animated results (login required) |
+| `/admin` | Admin | Panels, posts, candidates, people, count limit, live display, election state |
+| `/staff` | Counting Supervisor | Enter per-candidate and invalid counts for assigned posts; open live results |
+| `/supervisor` | Returning Officer | Verify or reject submitted rounds; open live results |
+| `/results/login` | Public results | Dedicated hall / public results login |
+| `/results` | Counting Supervisor, Returning Officer, Public results | Live animated results (login required) |
 
 ## Counting rules
 
 - A round is all candidate counts for one post, plus invalid / spoilt ballots, saved in a single Postgres transaction.
 - Invalid votes count toward the round size and votes polled. They do not add to a candidate.
 - Duplicate submits are blocked in the UI (disabled button + ref guard) and in the database (`unique (post_id, staff_id, round_number)`).
-- Count rows are written only by `submit_count_round` / `review_count_round`. Staff cannot insert or self-verify rounds through the API.
-- Verified rounds become part of the live tally. Admin can instead show pending rounds on the hall board immediately after staff submit.
+- Count rows are written only by `submit_count_round` / `review_count_round`. Counting Supervisors cannot insert or self-verify rounds through the API.
+- Verified rounds become part of the live tally. Admin can instead show pending rounds on the hall board immediately after a Counting Supervisor submits.
 - When verified ballots for a post reach that post's votes polled, those totals are finalised and immutable.
 - `count_limit` is the number of ballots in each round. The last round may contain fewer.

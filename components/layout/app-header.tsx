@@ -5,16 +5,16 @@ import { usePathname } from "next/navigation";
 import { BrandLockup } from "@/components/branding/geci-mark";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import type { UserRole } from "@/lib/types";
-import { cn, roleHome } from "@/lib/utils";
+import { cn, roleHome, roleLabel } from "@/lib/utils";
 
 const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
   admin: [{ href: "/admin", label: "Dashboard" }],
   staff: [
-    { href: "/staff", label: "Counting" },
+    { href: "/staff", label: "Counting Supervisor" },
     { href: "/results", label: "Live results" },
   ],
   supervisor: [
-    { href: "/supervisor", label: "Verification" },
+    { href: "/supervisor", label: "Returning Officer" },
     { href: "/results", label: "Live results" },
   ],
   display: [{ href: "/results", label: "Live results" }],
@@ -62,9 +62,7 @@ export function AppHeader({
         <div className="flex items-center gap-3">
           <div className="hidden text-right sm:block">
             <p className="text-sm font-medium">{name}</p>
-            <p className="text-xs capitalize text-muted-foreground">
-              {role === "display" ? "public results" : role}
-            </p>
+            <p className="text-xs text-muted-foreground">{roleLabel(role)}</p>
           </div>
           <SignOutButton />
         </div>

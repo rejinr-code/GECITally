@@ -35,7 +35,12 @@ export async function submitCountRound(
         ? "Duplicate round detected. This round was already submitted."
         : error.message.includes("p_invalid_votes") || error.message.includes("schema cache")
           ? "Run supabase/migrations/0011_invalid_votes.sql in the Supabase SQL editor first."
-          : error.message;
+          : error.message
+              .replace("Only counting staff can submit rounds", "Only a Counting Supervisor can submit rounds")
+              .replace(
+                "A round is already awaiting supervisor verification",
+                "A round is already awaiting Returning Officer verification",
+              );
       return { error: message };
     }
 

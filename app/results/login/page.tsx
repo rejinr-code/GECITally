@@ -37,9 +37,9 @@ export default async function ResultsLoginPage() {
           <CardContent className="space-y-4">
             <LoginForm next="/results" />
             <p className="text-center text-sm text-muted-foreground">
-              Counting staff?{" "}
+              Counting Supervisor?{" "}
               <Link href="/login" className="text-primary hover:underline">
-                Staff login
+                Counting Supervisor login
               </Link>
             </p>
           </CardContent>

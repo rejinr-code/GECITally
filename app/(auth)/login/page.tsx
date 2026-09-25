@@ -18,7 +18,7 @@ export default async function LoginPage({
         <Card className="w-full max-w-md">
           <CardHeader>
             <BrandLockup />
-            <CardTitle className="pt-4">Counting duty login</CardTitle>
+            <CardTitle className="pt-4">Counting Supervisor login</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <LoginForm next={next} />

@@ -17,11 +17,11 @@ const STATES: ElectionState[] = ["setup", "counting", "finalised"];
 const STATE_COPY: Record<ElectionState, { title: string; detail: string }> = {
   setup: {
     title: "Switch to Setup?",
-    detail: "Counting staff will not be able to submit rounds. Posts and candidates can still be edited.",
+    detail: "Counting Supervisors will not be able to submit rounds. Posts and candidates can still be edited.",
   },
   counting: {
     title: "Switch to Counting?",
-    detail: "Staff can enter votes and supervisors can verify rounds. Configuration edits stay limited.",
+    detail: "Counting Supervisors can enter votes and Returning Officers can verify rounds. Configuration edits stay limited.",
   },
   finalised: {
     title: "Switch to Finalised?",
@@ -202,7 +202,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 defaultValue={election?.count_limit ?? 8}
               />
               <p className="text-xs text-muted-foreground">
-                Each counting round has N ballots. Staff get a prompt when the round reaches N.
+                Each counting round has N ballots. Counting Supervisors get a prompt when the round reaches N.
                 The last round may have fewer remaining ballots. A post locks when its votes polled
                 are fully counted.
               </p>
@@ -269,7 +269,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            These settings change how staff count and what the hall display board shows. Saving them
+            These settings change how Counting Supervisors count and what the hall display board shows. Saving them
             requires your admin password.
           </p>
           <div className="grid gap-4 md:grid-cols-2">
@@ -300,9 +300,9 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                   disabled={!election || !requireVerification}
                 />
                 <span>
-                  <span className="font-medium">With supervisor approval</span>
+                  <span className="font-medium">With Returning Officer approval</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Staff wait after each round until a supervisor verifies it.
+                    Counting Supervisors wait after each round until a Returning Officer verifies it.
                   </span>
                 </span>
               </label>
@@ -316,7 +316,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                   disabled={!election}
                 />
                 <span>
-                  <span className="font-medium">Without supervisor approval</span>
+                  <span className="font-medium">Without Returning Officer approval</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
                     Each submitted round is accepted immediately so the next round can start.
                     Rounds already waiting are accepted too.
@@ -337,7 +337,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                   disabled={!election}
                 />
                 <span>
-                  <span className="font-medium">After supervisor approval</span>
+                  <span className="font-medium">After Returning Officer approval</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
                     Hall results only include verified rounds.
                   </span>
@@ -356,10 +356,10 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                   disabled={!election}
                 />
                 <span>
-                  <span className="font-medium">Directly after staff submit</span>
+                  <span className="font-medium">Directly after a Counting Supervisor submits</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Pending rounds appear immediately. Staff can start the next round without waiting
-                    for a supervisor. Rejected rounds are removed.
+                    Pending rounds appear immediately. Counting Supervisors can start the next round without waiting
+                    for a Returning Officer. Rejected rounds are removed.
                   </span>
                 </span>
               </label>
@@ -437,9 +437,9 @@ export function ElectionSettings({ election }: { election: Election | null }) {
               Update counting and live results?
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Counting will proceed {countingRequireVerification ? "with" : "without"} supervisor
+              Counting will proceed {countingRequireVerification ? "with" : "without"} Returning Officer
               approval. Posts will rotate every {rotateSeconds || "—"} seconds. Vote totals will show{" "}
-              {requireVerification ? "only after supervisor approval" : "directly after staff submit"}.
+              {requireVerification ? "only after Returning Officer approval" : "directly after a Counting Supervisor submits"}.
               Enter your admin password, then confirm.
             </p>
             <form

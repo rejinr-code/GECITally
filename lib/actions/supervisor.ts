@@ -17,7 +17,14 @@ export async function reviewRound(roundId: string, action: "verify" | "reject", 
       p_remarks: remarks || null,
     });
 
-    if (error) return { error: error.message };
+    if (error) {
+      return {
+        error: error.message.replace(
+          "Only the counting supervisor can review rounds",
+          "Only the Returning Officer can review rounds",
+        ),
+      };
+    }
 
     revalidatePath("/supervisor");
     revalidatePath("/staff");

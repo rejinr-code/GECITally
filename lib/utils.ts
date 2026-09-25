@@ -66,6 +66,14 @@ export function canViewResults(role: string | null | undefined) {
   return role === "staff" || role === "supervisor" || role === "display";
 }
 
+export function roleLabel(role: string | null | undefined) {
+  if (role === "staff") return "Counting Supervisor";
+  if (role === "supervisor") return "Returning Officer";
+  if (role === "display") return "Public results";
+  if (role === "admin") return "Admin";
+  return role ?? "";
+}
+
 export function parsePositiveInt(value: unknown, fallback = 0) {
   const n = typeof value === "number" ? value : Number.parseInt(String(value), 10);
   return Number.isFinite(n) && n >= 0 ? n : fallback;

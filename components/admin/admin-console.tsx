@@ -50,13 +50,13 @@ export function AdminConsole({
       {schemaNeedsLiveDisplay && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           Run <code className="font-medium">supabase/migrations/0005_live_display_settings.sql</code> in
-          the Supabase SQL editor to control results rotate delay and whether totals wait for supervisor approval.
+          the Supabase SQL editor to control results rotate delay and whether totals wait for Returning Officer approval.
         </p>
       )}
       {schemaNeedsCountingMode && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           Run <code className="font-medium">supabase/migrations/0006_counting_without_supervisor.sql</code> in
-          the Supabase SQL editor to let counting continue with or without supervisor approval.
+          the Supabase SQL editor to let counting continue with or without Returning Officer approval.
         </p>
       )}
       <Tabs defaultValue="election">

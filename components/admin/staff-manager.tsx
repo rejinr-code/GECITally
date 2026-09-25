@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
-import { postSerial } from "@/lib/utils";
+import { postSerial, roleLabel } from "@/lib/utils";
 
 type StaffRow = Profile & { assigned_post_ids: string[] };
 
@@ -38,7 +38,7 @@ export function StaffManager({
         </CardContent>
       </Card>
 
-      <RoleList title="Counting supervisor" people={supervisors} />
+      <RoleList title="Returning Officer" people={supervisors} />
       <RoleList title="Public results display" people={displays} />
       <RoleList title="Admins" people={admins} />
       <StaffList staff={staff} posts={posts} />
@@ -88,8 +88,8 @@ function CreateAccountForm({ posts }: { posts: Post[] }) {
           className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
           onChange={(event) => setRole(event.target.value as UserRole)}
         >
-          <option value="staff">Counting staff</option>
-          <option value="supervisor">Counting supervisor</option>
+          <option value="staff">Counting Supervisor</option>
+          <option value="supervisor">Returning Officer</option>
           <option value="display">Public results display</option>
           <option value="admin">Admin</option>
         </select>
@@ -98,7 +98,7 @@ function CreateAccountForm({ posts }: { posts: Post[] }) {
         <div className="space-y-2 md:col-span-2">
           <Label>Assign posts</Label>
           <p className="text-xs text-muted-foreground">
-            Counting staff can enter votes only for the posts you assign here.
+            Counting Supervisors can enter votes only for the posts you assign here.
           </p>
           <div className="flex flex-wrap gap-3">
             {posts.map((post, index) => (
@@ -132,8 +132,8 @@ function RoleList({ title, people }: { title: string; people: Profile[] }) {
             {people.map((person) => (
               <li key={person.id} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
                 <span className="font-medium">{person.full_name}</span>
-                <Badge variant="secondary" className="capitalize">
-                  {person.role}
+                <Badge variant="secondary">
+                  {roleLabel(person.role)}
                 </Badge>
               </li>
             ))}
@@ -148,10 +148,10 @@ function StaffList({ staff, posts }: { staff: StaffRow[]; posts: Post[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Counting staff</CardTitle>
+        <CardTitle>Counting Supervisors</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {staff.length === 0 && <p className="text-sm text-muted-foreground">No staff accounts yet.</p>}
+        {staff.length === 0 && <p className="text-sm text-muted-foreground">No Counting Supervisor accounts yet.</p>}
         {staff.map((person) => (
           <StaffRowCard key={person.id} person={person} posts={posts} />
         ))}
@@ -178,10 +178,10 @@ function StaffRowCard({ person, posts }: { person: StaffRow; posts: Post[] }) {
             });
           }}
         >
-          <option value="staff">staff</option>
-          <option value="supervisor">supervisor</option>
-          <option value="display">public results</option>
-          <option value="admin">admin</option>
+          <option value="staff">Counting Supervisor</option>
+          <option value="supervisor">Returning Officer</option>
+          <option value="display">Public results</option>
+          <option value="admin">Admin</option>
         </select>
       </div>
       <div className="flex flex-wrap gap-3">

@@ -237,7 +237,7 @@ export function CountForm({
             {isLastRound ? `. This last round has ${formatNumber(roundCap)} remaining.` : "."}
           </p>
         </div>
-        {waitingOnSupervisor && <Badge variant="warning">Awaiting supervisor verification</Badge>}
+        {waitingOnSupervisor && <Badge variant="warning">Awaiting Returning Officer verification</Badge>}
         {rejectedRound && !waitingOnSupervisor && (
           <Badge variant="destructive">Rejected — re-enter this round</Badge>
         )}
@@ -248,7 +248,7 @@ export function CountForm({
       <CardContent className="space-y-4">
         {rejectedRound?.remarks && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
-            Supervisor remarks: {rejectedRound.remarks}
+            Returning Officer remarks: {rejectedRound.remarks}
           </p>
         )}
         {!countingOpen && (
@@ -418,7 +418,7 @@ export function CountForm({
             </DialogTitle>
             <DialogDescription>
               {requireSupervisor
-                ? "Confirm these sequential totals. This round will wait for supervisor verification."
+                ? "Confirm these sequential totals. This round will wait for Returning Officer verification."
                 : "Confirm these sequential totals. This round will be accepted immediately."}
             </DialogDescription>
           </DialogHeader>

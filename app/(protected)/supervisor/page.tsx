@@ -84,13 +84,13 @@ export default async function SupervisorPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Supervisor verification</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Returning Officer</h1>
         <p className="mt-1 text-muted-foreground">
           {election ? `${election.name} · ${election.count_limit} ballots per round` : "No election configured."}
         </p>
         {election && !requireSupervisor ? (
           <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            Counting is set to proceed without supervisor approval. New rounds are accepted on submit.
+            Counting is set to proceed without Returning Officer approval. New rounds are accepted on submit.
             Any rounds already in this queue still need a decision.
           </p>
         ) : null}
