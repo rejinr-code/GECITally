@@ -2,10 +2,13 @@
 
 import { motion } from "framer-motion";
 import { LiveCounter } from "@/components/results/live-counter";
-import { initials, ordinalMark } from "@/lib/utils";
+import { initials } from "@/lib/utils";
 import { candidateClassLabel } from "@/lib/candidate-class";
+import { panelKey, panelTheme } from "@/lib/results-studio";
 import type { LiveCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+const BAR = "#334155";
 
 export function CandidateCard({
   candidate,
@@ -14,8 +17,8 @@ export function CandidateCard({
   elected,
   tied = false,
   maxVotes,
-  seats,
   share,
+  margin,
 }: {
   candidate: LiveCandidate;
   rank: number;
@@ -23,11 +26,14 @@ export function CandidateCard({
   elected: boolean;
   tied?: boolean;
   maxVotes: number;
-  seats: number;
   share: number;
+  margin?: number;
 }) {
   const classLabel = candidateClassLabel(candidate.branch, candidate.year, candidate.semester);
   const width = maxVotes > 0 ? (candidate.votes / maxVotes) * 100 : 0;
+  const panel = panelKey(candidate.panel_name);
+  const theme = panelTheme(panel);
+  const status = elected ? "WON" : tied ? "TIE" : leading ? "LEAD" : "";
 
   return (
     <motion.article
@@ -35,117 +41,78 @@ export function CandidateCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "relative overflow-hidden rounded-xl border bg-white px-3 py-3 shadow-sm",
-        elected
-          ? "border-amber-400 bg-gradient-to-r from-amber-50 via-white to-emerald-50 shadow-[0_0_20px_rgba(251,191,36,0.28)]"
-          : tied
-            ? "border-sky-400 bg-sky-50/80 shadow-[0_0_0_3px_rgba(14,165,233,0.16)]"
-            : leading
-            ? "border-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]"
-            : "border-emerald-100",
+        "relative overflow-hidden border-b border-slate-100 px-2 py-1.5 text-slate-950 last:border-b-0 sm:px-3 sm:py-2",
+        elected ? "border-l-4 border-l-slate-900 bg-slate-50" : tied ? "border-l-4 border-l-slate-300 bg-white" : "bg-white",
       )}
     >
-      {elected ? (
-        <motion.span
-          initial={{ x: 40, opacity: 0, rotate: 12 }}
-          animate={{ x: 0, opacity: 1, rotate: -8 }}
-          className="absolute right-3 top-2 rounded bg-amber-300 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-emerald-950"
-        >
-          ELECTED
-        </motion.span>
-      ) : tied ? (
-        <motion.span
-          initial={{ x: 40, opacity: 0, rotate: 12 }}
-          animate={{ x: 0, opacity: 1, rotate: -8 }}
-          className="absolute right-3 top-2 rounded bg-sky-200 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-sky-950"
-        >
-          TIE
-        </motion.span>
-      ) : null}
-      <div className="flex items-center gap-3">
-        <span
-          className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-md text-sm font-bold tabular-nums",
-            elected ? "bg-amber-300 text-emerald-950" : tied ? "bg-sky-200 text-sky-950" : "bg-emerald-100 text-emerald-800",
-          )}
-        >
-          {rank}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-xs font-black tabular-nums text-slate-700 sm:size-8 sm:text-sm">
+          {maxVotes > 0 ? rank : "–"}
         </span>
         {candidate.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={candidate.photo_url}
             alt=""
-            className={cn(
-              "size-12 rounded-full object-cover ring-2 md:size-14",
-              elected ? "ring-amber-400" : tied ? "ring-sky-300" : "ring-emerald-100",
-            )}
+            className="size-10 shrink-0 rounded-full object-cover ring-1 ring-slate-200 sm:size-12"
           />
         ) : (
           <div
-            className={cn(
-              "flex size-12 items-center justify-center rounded-full text-sm font-semibold ring-2 md:size-14",
-              elected
-                ? "bg-amber-200 text-emerald-950 ring-amber-400"
-                : tied
-                  ? "bg-sky-100 text-sky-950 ring-sky-300"
-                  : "bg-emerald-100 text-emerald-800 ring-emerald-200",
-            )}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-black ring-1 ring-slate-200 sm:size-12 sm:text-sm"
+            style={{ background: theme.bg, color: theme.fg }}
           >
             {initials(candidate.name)}
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <h3 className="truncate text-lg font-semibold text-emerald-950 md:text-xl">{candidate.name}</h3>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <h3 className="truncate text-base font-black tracking-tight sm:text-xl">{candidate.name}</h3>
             {classLabel ? (
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-                {classLabel}
-              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{classLabel}</span>
             ) : null}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {candidate.panel_name ?? "Independent"}
-            {tied ? " · Tied" : leading && !elected ? ` · Leading · Top ${seats}` : ""}
-          </p>
-          <div className="mt-2 h-3 overflow-hidden rounded-full bg-emerald-50">
-            <motion.div
-              className={cn(
-                "h-full rounded-full",
-                elected ? "bg-amber-400" : tied ? "bg-sky-500" : leading ? "bg-emerald-500" : "bg-slate-400",
-              )}
-              initial={false}
-              animate={{ width: `${width}%` }}
-              transition={{ type: "spring", stiffness: 80, damping: 20 }}
-            />
+          <div className="mt-1 flex items-center gap-2">
+            <span
+              className="rounded-sm px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide"
+              style={{ background: theme.bg, color: theme.fg }}
+            >
+              {panel}
+            </span>
+            <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: BAR }}
+                initial={false}
+                animate={{ width: `${width}%` }}
+                transition={{ type: "spring", stiffness: 80, damping: 20 }}
+              />
+            </div>
           </div>
         </div>
-        <div className="shrink-0 text-right">
+        {status ? (
+          <span
+            className={cn(
+              "hidden shrink-0 rounded-sm border px-2 py-1 text-[11px] font-black tracking-[0.14em] sm:inline",
+              elected
+                ? "border-slate-900 bg-slate-900 text-white"
+                : tied
+                  ? "border-slate-400 text-slate-600"
+                  : "border-slate-300 text-slate-500",
+            )}
+          >
+            {status}
+          </span>
+        ) : null}
+        <div className="w-[4.5rem] shrink-0 text-right sm:w-24">
           <LiveCounter
             value={candidate.votes}
-            className={cn(
-              "block text-3xl font-black tabular-nums leading-none md:text-4xl",
-              elected ? "text-amber-600" : tied ? "text-sky-700" : "text-emerald-800",
-            )}
+            className="block text-2xl font-black tabular-nums leading-none sm:text-4xl"
           />
-          {seats > 1 &&
-          (candidate.slot_votes?.length ?? 0) > 1 &&
-          candidate.slot_votes!.reduce((sum, count) => sum + count, 0) === candidate.votes ? (
-            <p className="mt-1 flex flex-wrap justify-end gap-1">
-              {candidate.slot_votes!.map((count, slot) => (
-                <span
-                  key={slot}
-                  className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white",
-                    slot === 0 ? "bg-emerald-700" : slot === 1 ? "bg-sky-600" : "bg-violet-700",
-                  )}
-                >
-                  {ordinalMark(slot)} {count}
-                </span>
-              ))}
-            </p>
-          ) : null}
-          <p className="mt-1 text-[11px] tabular-nums text-emerald-600">{share}% share</p>
+          {leading && !elected && !tied && margin && margin > 0 ? (
+            <p className="mt-0.5 text-[10px] font-black tabular-nums tracking-wide text-slate-500">LEAD {margin}</p>
+          ) : (
+            <p className="mt-0.5 text-[10px] font-bold tabular-nums text-slate-500">{share}%</p>
+          )}
         </div>
       </div>
     </motion.article>
