@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import type { LiveCandidate } from "@/lib/types";
 import { candidateClassLabel } from "@/lib/candidate-class";
-import { initials } from "@/lib/utils";
+import { cn, initials } from "@/lib/utils";
 
 export const WINNER_BURST_MS = 4200;
 
@@ -34,9 +34,10 @@ export function WinnerBurst({
     return () => window.clearTimeout(timer);
   }, [postId]);
 
+  if (!winners.length || !visible) return null;
+
+  const multi = winners.length > 1;
   const headline = seats > 1 ? "ELECTED" : "WINS";
-  const lead = winners[0];
-  if (!lead || !visible) return null;
 
   return (
     <motion.div
@@ -60,46 +61,111 @@ export function WinnerBurst({
         />
       ))}
       <motion.div
-        className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
+        className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center md:px-8"
         initial={{ scale: 0.7, y: 30 }}
         animate={{ scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 160, damping: 14 }}
       >
         <p className="text-xs font-semibold tracking-[0.45em] text-amber-600">RESULT DECLARED</p>
-        <div className="mt-4 flex items-center gap-4">
-          {lead.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={lead.photo_url}
-              alt=""
-              className="size-20 rounded-full object-cover ring-4 ring-amber-400 md:size-24"
-            />
-          ) : (
-            <div className="flex size-20 items-center justify-center rounded-full bg-amber-300 text-2xl font-bold text-emerald-950 ring-4 ring-emerald-800 md:size-24">
-              {initials(lead.name ?? "")}
-            </div>
-          )}
-          <div className="text-left">
+        {multi ? (
+          <>
             <p
-              className="bg-[linear-gradient(90deg,#b45309,#ca8a04,#f59e0b,#b45309)] bg-[length:200%_100%] bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
+              className="mt-2 bg-[linear-gradient(90deg,#b45309,#ca8a04,#f59e0b,#b45309)] bg-[length:200%_100%] bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
               style={{ animation: "goldShine 1.6s linear infinite" }}
             >
               {headline}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-emerald-950 md:text-3xl">{lead.name}</p>
-            <p className="text-sm text-emerald-700">
-              {[candidateClassLabel(lead.branch, lead.year, lead.semester), lead.panel_name]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
+            <div
+              className={cn(
+                "mt-5 grid w-full max-w-3xl items-start justify-items-center gap-6",
+                winners.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3",
+              )}
+            >
+              {winners.map((winner, index) => (
+                <WinnerPortrait key={winner.id} winner={winner} index={index} compact={winners.length > 2} />
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="mt-4 flex items-center gap-4">
+            <WinnerFace winner={winners[0]} />
+            <div className="text-left">
+              <p
+                className="bg-[linear-gradient(90deg,#b45309,#ca8a04,#f59e0b,#b45309)] bg-[length:200%_100%] bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
+                style={{ animation: "goldShine 1.6s linear infinite" }}
+              >
+                {headline}
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-emerald-950 md:text-3xl">{winners[0].name}</p>
+              <WinnerDetail winner={winners[0]} />
+            </div>
           </div>
-        </div>
-        {winners.length > 1 ? (
-          <p className="mt-4 text-sm text-amber-800">
-            with {winners.slice(1).map((winner) => winner.name).join(", ")}
-          </p>
-        ) : null}
+        )}
       </motion.div>
+    </motion.div>
+  );
+}
+
+function winnerDetail(winner: LiveCandidate) {
+  return [candidateClassLabel(winner.branch, winner.year, winner.semester), winner.panel_name]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function WinnerFace({ winner, compact = false }: { winner: LiveCandidate; compact?: boolean }) {
+  if (winner.photo_url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={winner.photo_url}
+        alt=""
+        className={cn(
+          "rounded-full object-cover ring-4 ring-amber-400",
+          compact ? "size-16 md:size-20" : "size-20 md:size-24",
+        )}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-center rounded-full bg-amber-300 font-bold text-emerald-950 ring-4 ring-emerald-800",
+        compact ? "size-16 text-xl md:size-20" : "size-20 text-2xl md:size-24",
+      )}
+    >
+      {initials(winner.name ?? "")}
+    </div>
+  );
+}
+
+function WinnerDetail({ winner }: { winner: LiveCandidate }) {
+  const detail = winnerDetail(winner);
+  if (!detail) return null;
+  return <p className="text-sm text-emerald-700">{detail}</p>;
+}
+
+function WinnerPortrait({
+  winner,
+  index,
+  compact = false,
+}: {
+  winner: LiveCandidate;
+  index: number;
+  compact?: boolean;
+}) {
+  return (
+    <motion.div
+      className="flex flex-col items-center text-center"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.12 + index * 0.08, type: "spring", stiffness: 180, damping: 16 }}
+    >
+      <WinnerFace winner={winner} compact={compact} />
+      <p className={cn("mt-3 font-semibold text-emerald-950", compact ? "text-lg md:text-xl" : "text-2xl md:text-3xl")}>
+        {winner.name}
+      </p>
+      <WinnerDetail winner={winner} />
     </motion.div>
   );
 }

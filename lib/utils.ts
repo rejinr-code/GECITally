@@ -79,11 +79,35 @@ export function parsePositiveInt(value: unknown, fallback = 0) {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
+export function ballotMarkCount(seats: number | null | undefined) {
+  return Math.max(1, seats ?? 1);
+}
+
+export function ordinalMark(slot: number) {
+  const n = slot + 1;
+  const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
+  return `${n}${suffix}`;
+}
+
+export function invalidSlotKey(slot: number) {
+  return `__invalid_${slot}__`;
+}
+
+export function marksToBallots(marks: number, seats: number | null | undefined) {
+  const per = ballotMarkCount(seats);
+  if (per <= 1) return marks;
+  return Math.floor(marks / per);
+}
+
 export function liveCountedBallots(post: {
   total_verified_votes: number;
   invalid_votes?: number | null;
+  seats?: number | null;
 }) {
-  return (post.total_verified_votes ?? 0) + (post.invalid_votes ?? 0);
+  return marksToBallots(
+    (post.total_verified_votes ?? 0) + (post.invalid_votes ?? 0),
+    post.seats,
+  );
 }
 
 export function liveDisplaySettings(election: {

@@ -11,11 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { candidateClassLabel } from "@/lib/candidate-class";
+import { marksToBallots, ordinalMark } from "@/lib/utils";
 
 export function VerificationCard({ round }: { round: PendingRound }) {
   const [remarks, setRemarks] = useState("");
   const { isSubmitting, run } = useAntiDuplicate();
   const invalid = round.invalid_votes ?? 0;
+  const slots =
+    round.invalid_slot_votes && round.invalid_slot_votes.length > 1 ? round.invalid_slot_votes : null;
   const total = round.entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
 
   async function act(action: "verify" | "reject") {
@@ -52,15 +55,36 @@ export function VerificationCard({ round }: { round: PendingRound }) {
                     .join(" · ")}
                 </span>
               </span>
-              <span className="font-semibold">{entry.votes}</span>
+              <span className="font-semibold tabular-nums">
+                {entry.votes}
+                {entry.slot_votes && entry.slot_votes.length > 1 ? (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {entry.slot_votes.map((count, slot) => `${ordinalMark(slot)} ${count}`).join(" · ")}
+                  </span>
+                ) : null}
+              </span>
             </li>
           ))}
-          <li className="flex justify-between gap-4 text-red-700">
-            <span>Invalid</span>
-            <span className="font-semibold">{invalid}</span>
-          </li>
+          {slots ? (
+            slots.map((count, slot) => (
+              <li key={`invalid-${slot}`} className="flex justify-between gap-4 text-red-700">
+                <span>Invalid {ordinalMark(slot)}</span>
+                <span className="font-semibold">{count}</span>
+              </li>
+            ))
+          ) : (
+            <li className="flex justify-between gap-4 text-red-700">
+              <span>Invalid</span>
+              <span className="font-semibold">{invalid}</span>
+            </li>
+          )}
         </ul>
-        <p className="border-t pt-3 text-sm font-semibold">Round total: {total}</p>
+        <p className="border-t pt-3 text-sm font-semibold">
+          Round total: {total}
+          {round.post.seats > 1
+            ? ` marks · ${marksToBallots(total, round.post.seats)} ballots`
+            : ""}
+        </p>
         <Textarea
           placeholder="Optional remarks"
           value={remarks}

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { LiveCounter } from "@/components/results/live-counter";
-import { initials } from "@/lib/utils";
+import { initials, ordinalMark } from "@/lib/utils";
 import { candidateClassLabel } from "@/lib/candidate-class";
 import type { LiveCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -114,6 +114,23 @@ export function CandidateCard({
               elected ? "text-amber-600" : "text-emerald-800",
             )}
           />
+          {seats > 1 &&
+          (candidate.slot_votes?.length ?? 0) > 1 &&
+          candidate.slot_votes!.reduce((sum, count) => sum + count, 0) === candidate.votes ? (
+            <p className="mt-1 flex flex-wrap justify-end gap-1">
+              {candidate.slot_votes!.map((count, slot) => (
+                <span
+                  key={slot}
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white",
+                    slot === 0 ? "bg-emerald-700" : slot === 1 ? "bg-sky-600" : "bg-violet-700",
+                  )}
+                >
+                  {ordinalMark(slot)} {count}
+                </span>
+              ))}
+            </p>
+          ) : null}
           <p className="mt-1 text-[11px] tabular-nums text-emerald-600">{share}% share</p>
         </div>
       </div>

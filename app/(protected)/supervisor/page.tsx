@@ -3,7 +3,7 @@ import { VerificationCard } from "@/components/supervisor/verification-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { Candidate, CountEntry, CountRound, PendingRound, Post, Profile } from "@/lib/types";
-import { liveDisplaySettings, percent } from "@/lib/utils";
+import { liveDisplaySettings, marksToBallots, percent } from "@/lib/utils";
 
 export default async function SupervisorPage() {
   const supabase = await createClient();
@@ -104,7 +104,7 @@ export default async function SupervisorPage() {
               const candidateVotes = (verifiedEntries ?? [])
                 .filter((entry) => entry.round_id === round.id)
                 .reduce((inner, entry) => inner + entry.votes, 0);
-              return sum + candidateVotes + (round.invalid_votes ?? 0);
+              return sum + marksToBallots(candidateVotes + (round.invalid_votes ?? 0), post.seats);
             }, 0);
           const polled = post.votes_polled ?? 0;
           return (

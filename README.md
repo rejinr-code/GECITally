@@ -49,7 +49,9 @@ In the Supabase SQL editor, run in order:
 11. `supabase/migrations/0011_invalid_votes.sql`
 12. `supabase/migrations/0012_admin_reset_finalised.sql`
 13. `supabase/migrations/0013_display_role.sql`
-14. `supabase/seed.sql` (optional starter posts)
+14. `supabase/migrations/0014_multi_seat_ballots.sql`
+15. `supabase/migrations/0015_candidate_slot_votes.sql`
+16. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -89,6 +91,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - A round is all candidate counts for one post, plus invalid / spoilt ballots, saved in a single Postgres transaction.
 - Invalid votes count toward the round size and votes polled. They do not add to a candidate.
+- A post with more than one seat has that many marks on each ballot (1st, 2nd, …). Counting records one vote per seat, with a separate invalid count for each mark. Live results show 1st and 2nd totals per candidate the same way. Single-seat posts stay one vote per ballot.
 - Duplicate submits are blocked in the UI (disabled button + ref guard) and in the database (`unique (post_id, staff_id, round_number)`).
 - Count rows are written only by `submit_count_round` / `review_count_round`. Counting Supervisors cannot insert or self-verify rounds through the API.
 - Verified rounds become part of the live tally. Admin can instead show pending rounds on the hall board immediately after a Counting Supervisor submits.

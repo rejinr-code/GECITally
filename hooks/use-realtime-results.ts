@@ -30,8 +30,14 @@ export function useRealtimeResults() {
         ...results,
         posts: (Array.isArray(results.posts) ? results.posts : []).map((post) => ({
           ...post,
-          candidates: Array.isArray(post.candidates) ? post.candidates : [],
+          candidates: Array.isArray(post.candidates)
+            ? post.candidates.map((candidate) => ({
+                ...candidate,
+                slot_votes: Array.isArray(candidate.slot_votes) ? candidate.slot_votes : [],
+              }))
+            : [],
           invalid_votes: post.invalid_votes ?? 0,
+          invalid_slot_votes: Array.isArray(post.invalid_slot_votes) ? post.invalid_slot_votes : [],
         })),
       });
       setError(null);

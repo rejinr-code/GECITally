@@ -6,7 +6,7 @@ import { CandidateCard } from "@/components/results/candidate-card";
 import { LiveCounter } from "@/components/results/live-counter";
 import { WinnerBurst } from "@/components/results/winner-burst";
 import type { ElectionState, LivePost } from "@/lib/types";
-import { formatNumber, liveCountedBallots, percent } from "@/lib/utils";
+import { formatNumber, liveCountedBallots, ordinalMark, percent } from "@/lib/utils";
 
 const SLICE_COLORS = [
   "#059669",
@@ -35,7 +35,10 @@ export function PostSection({
   const ranked = [...(post.candidates ?? [])].sort((a, b) => b.votes - a.votes);
   const maxVotes = ranked[0]?.votes ?? 0;
   const invalidVotes = post.invalid_votes ?? 0;
+  const invalidSlots =
+    post.invalid_slot_votes && post.invalid_slot_votes.length > 1 ? post.invalid_slot_votes : null;
   const candidateVotes = ranked.reduce((sum, candidate) => sum + candidate.votes, 0);
+  const countedMarks = candidateVotes + invalidVotes;
   const countedBallots = liveCountedBallots(post);
   const votesPolled = post.votes_polled ?? 0;
   const declared = post.is_finalised || electionState === "finalised";
@@ -47,10 +50,17 @@ export function PostSection({
       votes: candidate.votes,
       fill: SLICE_COLORS[index % SLICE_COLORS.length],
     })),
-    { name: "Invalid", shortName: "Invalid", votes: invalidVotes, fill: "#dc2626" },
+    ...(invalidSlots
+      ? invalidSlots.map((votes, slot) => ({
+          name: `Invalid ${ordinalMark(slot)}`,
+          shortName: `Inv ${ordinalMark(slot)}`,
+          votes,
+          fill: slot === 0 ? "#dc2626" : "#b91c1c",
+        }))
+      : [{ name: "Invalid", shortName: "Invalid", votes: invalidVotes, fill: "#dc2626" }]),
   ];
   const pieData =
-    countedBallots > 0
+    countedMarks > 0
       ? chartData
       : ranked.map((candidate, index) => ({
           name: candidate.name,
@@ -59,7 +69,7 @@ export function PostSection({
           fill: SLICE_COLORS[index % SLICE_COLORS.length],
         }));
   const twoCol = ranked.length > 2;
-  const barMax = Math.max(maxVotes, invalidVotes);
+  const barMax = Math.max(maxVotes, ...(invalidSlots ?? [invalidVotes]));
 
   return (
     <motion.section
@@ -93,13 +103,21 @@ export function PostSection({
           <p className="mt-1 text-xs text-muted-foreground">
             {formatNumber(countedBallots)}
             {votesPolled > 0 ? ` / ${formatNumber(votesPolled)} polled` : " counted"}
-            <span className="font-medium text-red-700"> · {formatNumber(invalidVotes)} invalid</span>
+            <span className="font-medium text-red-700">
+              {" "}
+              ·{" "}
+              {invalidSlots
+                ? invalidSlots.map((votes, slot) => `Invalid ${ordinalMark(slot)} ${formatNumber(votes)}`).join(" · ")
+                : `${formatNumber(invalidVotes)} invalid`}
+            </span>
             {post.pending_rounds ? ` · ${post.pending_rounds} pending rounds` : ""}
           </p>
         </div>
         <div className="flex items-end gap-5">
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-red-600">Invalid</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-red-600">
+              {invalidSlots ? "Invalid marks" : "Invalid"}
+            </p>
             <LiveCounter value={invalidVotes} className="text-4xl font-black tabular-nums text-red-700" />
           </div>
           <div className="text-right">
@@ -139,7 +157,19 @@ export function PostSection({
                 share={percent(candidate.votes, candidateVotes)}
               />
             ))}
-            <InvalidVotesCard votes={invalidVotes} maxVotes={barMax} share={percent(invalidVotes, countedBallots)} />
+            {invalidSlots ? (
+              invalidSlots.map((votes, slot) => (
+                <InvalidVotesCard
+                  key={`invalid-${slot}`}
+                  votes={votes}
+                  maxVotes={barMax}
+                  share={percent(votes, countedMarks)}
+                  label={`Invalid ${ordinalMark(slot)}`}
+                />
+              ))
+            ) : (
+              <InvalidVotesCard votes={invalidVotes} maxVotes={barMax} share={percent(invalidVotes, countedMarks)} />
+            )}
           </AnimatePresence>
         </div>
         <div className="flex min-h-0 flex-col rounded-xl border border-emerald-100 bg-slate-50 p-2">
@@ -157,14 +187,14 @@ export function PostSection({
                   cy="50%"
                   innerRadius="42%"
                   outerRadius="72%"
-                  paddingAngle={countedBallots > 0 ? 2 : 0}
+                  paddingAngle={countedMarks > 0 ? 2 : 0}
                   isAnimationActive
                   animationDuration={700}
                 >
                   {pieData.map((slice) => (
                     <Cell
                       key={slice.name}
-                      fill={countedBallots > 0 ? slice.fill : "#cbd5e1"}
+                      fill={countedMarks > 0 ? slice.fill : "#cbd5e1"}
                       stroke="#fff"
                       strokeWidth={1}
                     />
@@ -173,8 +203,8 @@ export function PostSection({
                 <Tooltip
                   formatter={(value, _name, item) => {
                     const votes = Number(value);
-                    if (countedBallots <= 0) return ["Awaiting votes", item.payload.name];
-                    return [`${formatNumber(votes)} (${percent(votes, countedBallots)}%)`, item.payload.name];
+                    if (countedMarks <= 0) return ["Awaiting votes", item.payload.name];
+                    return [`${formatNumber(votes)} (${percent(votes, countedMarks)}%)`, item.payload.name];
                   }}
                 />
                 <Legend
@@ -190,7 +220,13 @@ export function PostSection({
 
       <p className="mt-2 shrink-0 text-xs text-muted-foreground">
         {formatNumber(countedBallots)} {requireVerification ? "verified" : "counted"}
-        <span className="font-medium text-red-700"> · {formatNumber(invalidVotes)} invalid</span>
+        <span className="font-medium text-red-700">
+          {" "}
+          ·{" "}
+          {invalidSlots
+            ? invalidSlots.map((votes, slot) => `Invalid ${ordinalMark(slot)} ${formatNumber(votes)}`).join(" · ")
+            : `${formatNumber(invalidVotes)} invalid`}
+        </span>
         {votesPolled > 0
           ? ` · ${percent(countedBallots, votesPolled)}% of ${formatNumber(votesPolled)} polled`
           : ""}
@@ -203,10 +239,12 @@ function InvalidVotesCard({
   votes,
   maxVotes,
   share,
+  label = "Invalid",
 }: {
   votes: number;
   maxVotes: number;
   share: number;
+  label?: string;
 }) {
   const width = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
 
@@ -225,7 +263,7 @@ function InvalidVotesCard({
           —
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-lg font-semibold text-red-950 md:text-xl">Invalid</h3>
+          <h3 className="truncate text-lg font-semibold text-red-950 md:text-xl">{label}</h3>
           <p className="text-xs text-red-700/80">Spoilt / rejected ballots</p>
           <div className="mt-2 h-3 overflow-hidden rounded-full bg-red-100">
             <motion.div

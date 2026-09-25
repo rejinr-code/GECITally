@@ -1,5 +1,5 @@
 import type { CountEntry, CountRound } from "@/lib/types";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatNumber, ordinalMark } from "@/lib/utils";
 
 const STATUS: Record<CountRound["status"], string> = {
   pending_verification: "Pending",
@@ -11,14 +11,22 @@ export function RoundCard({
   round,
   entries,
   invalidVotes,
+  invalidSlotVotes,
   seats = 1,
 }: {
   round: CountRound;
   entries: Array<CountEntry & { candidate_name: string }>;
   invalidVotes?: number;
+  invalidSlotVotes?: number[];
   seats?: number;
 }) {
   const invalid = invalidVotes ?? round.invalid_votes ?? 0;
+  const slots =
+    invalidSlotVotes && invalidSlotVotes.length > 1
+      ? invalidSlotVotes
+      : round.invalid_slot_votes && round.invalid_slot_votes.length > 1
+        ? round.invalid_slot_votes
+        : null;
   const total = entries.reduce((sum, entry) => sum + entry.votes, 0) + invalid;
   const ranked = [...entries].sort((a, b) => b.votes - a.votes);
   const cutoff = ranked[Math.max(0, seats - 1)]?.votes ?? 0;
@@ -59,7 +67,9 @@ export function RoundCard({
         ))}
         <span>
           {" · "}
-          Invalid {formatNumber(invalid)}
+          {slots
+            ? slots.map((count, slot) => `Invalid ${ordinalMark(slot)} ${formatNumber(count)}`).join(" · ")
+            : `Invalid ${formatNumber(invalid)}`}
         </span>
       </p>
       {round.remarks ? <p className="mt-1 text-xs text-red-700">{round.remarks}</p> : null}

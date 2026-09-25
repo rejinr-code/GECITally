@@ -11,7 +11,7 @@ import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatNumber, liveCountedBallots, liveDisplaySettings, percent, shortPostName } from "@/lib/utils";
+import { formatDate, formatNumber, liveCountedBallots, liveDisplaySettings, ordinalMark, percent, shortPostName } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const BIG_SCREEN_KEY = "geci-big-screen";
@@ -196,9 +196,24 @@ export function ResultsBoard({
             <Stat label="Polled" value={current?.votes_polled ?? 0} />
             <Stat
               label={display.results_require_verification ? "Verified" : "Counted"}
-              value={current?.total_verified_votes ?? 0}
+              value={
+                current && (current.seats ?? 1) > 1
+                  ? liveCountedBallots(current)
+                  : (current?.total_verified_votes ?? 0)
+              }
             />
-            <Stat label="Invalid" value={current?.invalid_votes ?? 0} tone="invalid" />
+            {current && (current.seats ?? 1) > 1 && current.invalid_slot_votes && current.invalid_slot_votes.length > 1
+              ? current.invalid_slot_votes.map((value, slot) => (
+                  <Stat
+                    key={`invalid-${slot}`}
+                    label={`Invalid ${ordinalMark(slot)}`}
+                    value={value}
+                    tone="invalid"
+                  />
+                ))
+              : (
+                  <Stat label="Invalid" value={current?.invalid_votes ?? 0} tone="invalid" />
+                )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button asChild size="sm" variant="outline">

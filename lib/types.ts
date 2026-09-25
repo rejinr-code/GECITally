@@ -69,6 +69,7 @@ export type CountRound = {
   remarks: string | null;
   is_finalised: boolean;
   invalid_votes: number;
+  invalid_slot_votes?: number[];
 };
 
 export type CountEntry = {
@@ -76,6 +77,7 @@ export type CountEntry = {
   round_id: string;
   candidate_id: string;
   votes: number;
+  slot_votes?: number[];
 };
 
 export type LiveCandidate = {
@@ -87,6 +89,7 @@ export type LiveCandidate = {
   year: number | null;
   semester?: number | null;
   votes: number;
+  slot_votes?: number[];
 };
 
 export type LivePost = {
@@ -100,6 +103,7 @@ export type LivePost = {
   is_finalised: boolean;
   total_verified_votes: number;
   invalid_votes: number;
+  invalid_slot_votes?: number[];
   candidates: LiveCandidate[];
 };
 

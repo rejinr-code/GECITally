@@ -18,9 +18,50 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { candidateClassLabel } from "@/lib/candidate-class";
-import { cn, formatNumber } from "@/lib/utils";
+import {
+  ballotMarkCount,
+  cn,
+  formatNumber,
+  invalidSlotKey,
+  marksToBallots,
+  ordinalMark,
+} from "@/lib/utils";
 
 const INVALID_KEY = "__invalid__";
+
+const SLOT_THEME = [
+  {
+    bar: "bg-emerald-600",
+    panel: "border-emerald-300 bg-emerald-50",
+    text: "text-emerald-900",
+    muted: "text-emerald-800",
+    chip: "bg-emerald-700 text-white",
+    vote: "bg-emerald-700 text-white hover:bg-emerald-800",
+    last: "bg-emerald-50/90",
+  },
+  {
+    bar: "bg-sky-600",
+    panel: "border-sky-300 bg-sky-50",
+    text: "text-sky-950",
+    muted: "text-sky-800",
+    chip: "bg-sky-600 text-white",
+    vote: "bg-sky-600 text-white hover:bg-sky-700",
+    last: "bg-sky-50",
+  },
+  {
+    bar: "bg-violet-600",
+    panel: "border-violet-300 bg-violet-50",
+    text: "text-violet-950",
+    muted: "text-violet-800",
+    chip: "bg-violet-700 text-white",
+    vote: "bg-violet-700 text-white hover:bg-violet-800",
+    last: "bg-violet-50",
+  },
+] as const;
+
+function slotTheme(slot: number) {
+  return SLOT_THEME[slot] ?? SLOT_THEME[SLOT_THEME.length - 1];
+}
 
 type Props = {
   postId: string;
@@ -34,17 +75,35 @@ type Props = {
   roundSize: number;
   votesPolled: number;
   countedBallots: number;
+  seats?: number;
 };
 
-function emptyTally(candidates: Candidate[]) {
-  return {
-    ...Object.fromEntries(candidates.map((candidate) => [candidate.id, 0])),
-    [INVALID_KEY]: 0,
-  };
+function emptyTally(candidates: Candidate[], seats: number) {
+  const tally: Record<string, number> = Object.fromEntries(
+    candidates.map((candidate) => [candidate.id, 0]),
+  );
+  if (seats <= 1) {
+    tally[INVALID_KEY] = 0;
+  } else {
+    for (let slot = 0; slot < seats; slot += 1) {
+      tally[invalidSlotKey(slot)] = 0;
+    }
+  }
+  return tally;
 }
 
 function pendingTotalOf(pendingAdds: Record<string, number>) {
   return Object.values(pendingAdds).reduce((sum, value) => sum + value, 0);
+}
+
+function emptyDraft(seats: number) {
+  return Array.from({ length: Math.max(seats, 1) }, () => null as string | null);
+}
+
+function emptySlotMap(candidates: Candidate[], seats: number) {
+  return Object.fromEntries(
+    candidates.map((candidate) => [candidate.id, Array.from({ length: Math.max(seats, 1) }, () => 0)]),
+  ) as Record<string, number[]>;
 }
 
 export function CountForm({
@@ -59,10 +118,21 @@ export function CountForm({
   roundSize,
   votesPolled,
   countedBallots,
+  seats = 1,
 }: Props) {
-  const [votes, setVotes] = useState<Record<string, number>>(() => emptyTally(candidates));
+  const marksPerBallot = ballotMarkCount(seats);
+  const multiSeat = marksPerBallot > 1;
+  const [votes, setVotes] = useState<Record<string, number>>(() => emptyTally(candidates, marksPerBallot));
   const [pendingAdds, setPendingAdds] = useState<Record<string, number>>({});
+  const [candidateSlots, setCandidateSlots] = useState<Record<string, number[]>>(() =>
+    emptySlotMap(candidates, marksPerBallot),
+  );
+  const [pendingCandidateSlots, setPendingCandidateSlots] = useState<Record<string, number[]>>(() =>
+    emptySlotMap(candidates, marksPerBallot),
+  );
+  const [draft, setDraft] = useState<(string | null)[]>(() => emptyDraft(marksPerBallot));
   const [lastId, setLastId] = useState<string | null>(null);
+  const [lastSlot, setLastSlot] = useState<number | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,34 +148,91 @@ export function CountForm({
     () => candidates.map((candidate) => ({ candidate, votes: votes[candidate.id] ?? 0 })),
     [candidates, votes],
   );
-  const invalidCount = votes[INVALID_KEY] ?? 0;
-  const committedTotal = rows.reduce((sum, row) => sum + row.votes, 0) + invalidCount;
-  const pendingTotal = pendingTotalOf(pendingAdds);
+  const invalidSlots = multiSeat
+    ? Array.from({ length: marksPerBallot }, (_, slot) => votes[invalidSlotKey(slot)] ?? 0)
+    : [votes[INVALID_KEY] ?? 0];
+  const invalidCount = invalidSlots.reduce((sum, value) => sum + value, 0);
+  const committedMarks = rows.reduce((sum, row) => sum + row.votes, 0) + invalidCount;
+  const pendingMarks = pendingTotalOf(pendingAdds);
+  const committedTotal = marksToBallots(committedMarks, marksPerBallot);
+  const pendingTotal = marksToBallots(pendingMarks, marksPerBallot);
   const total = committedTotal + pendingTotal;
+  const fillingBallot = multiSeat && draft.some(Boolean);
+  const currentSlot = multiSeat ? draft.findIndex((slot) => slot == null) : 0;
+  const activeSlot = multiSeat ? Math.max(currentSlot, 0) : 0;
+  const theme = slotTheme(activeSlot);
   const waitingOnSupervisor = requireSupervisor && Boolean(pendingRound);
   const blocked = waitingOnSupervisor || !countingOpen || postComplete;
-  const canCount = !blocked && !isSubmitting && total < roundCap;
-  const canConfirmQueued = !blocked && !isSubmitting && pendingTotal > 0;
+  const canCount = !blocked && !isSubmitting && (fillingBallot || total < roundCap);
+  const canConfirmQueued = !blocked && !isSubmitting && pendingTotal > 0 && !fillingBallot;
   const roundFull = roundCap > 0 && total >= roundCap;
   const canSubmit =
     !blocked &&
     !isSubmitting &&
     pendingTotal === 0 &&
+    !fillingBallot &&
     committedTotal > 0 &&
     (exactRoundRequired ? committedTotal === roundCap : committedTotal <= roundSize);
 
   function queueVote(candidateId: string) {
     if (!canCount) return;
     setError(null);
-    setPendingAdds((current) => ({
-      ...current,
-      [candidateId]: (current[candidateId] ?? 0) + 1,
-    }));
+
+    if (!multiSeat) {
+      setPendingAdds((current) => ({
+        ...current,
+        [candidateId]: (current[candidateId] ?? 0) + 1,
+      }));
+      setLastId(candidateId);
+      setLastSlot(0);
+      return;
+    }
+
+    const slot = currentSlot < 0 ? 0 : currentSlot;
+    const isInvalidMark = candidateId.startsWith("__invalid_");
+    if (isInvalidMark && candidateId !== invalidSlotKey(slot)) {
+      setError(`Cast the ${ordinalMark(slot)} vote on this ballot first.`);
+      return;
+    }
+    if (!isInvalidMark && draft.includes(candidateId)) {
+      setError("This candidate is already marked on this ballot.");
+      return;
+    }
+
+    const next = [...draft];
+    next[slot] = candidateId;
     setLastId(candidateId);
+    setLastSlot(slot);
+    if (next.every(Boolean)) {
+      setPendingAdds((current) => {
+        const queued = { ...current };
+        for (const id of next) {
+          if (!id) continue;
+          queued[id] = (queued[id] ?? 0) + 1;
+        }
+        return queued;
+      });
+      setPendingCandidateSlots((current) => {
+        const queued = { ...current };
+        next.forEach((id, slot) => {
+          if (!id || id.startsWith("__invalid")) return;
+          const marks = [...(queued[id] ?? Array.from({ length: marksPerBallot }, () => 0))];
+          marks[slot] = (marks[slot] ?? 0) + 1;
+          queued[id] = marks;
+        });
+        return queued;
+      });
+      setDraft(emptyDraft(marksPerBallot));
+    } else {
+      setDraft(next);
+    }
   }
 
   function clearQueued() {
     setPendingAdds({});
+    setPendingCandidateSlots(emptySlotMap(candidates, marksPerBallot));
+    setDraft(emptyDraft(marksPerBallot));
+    setError(null);
   }
 
   function confirmQueued() {
@@ -118,14 +245,24 @@ export function CountForm({
       }
       return next;
     });
+    setCandidateSlots((current) => {
+      const next = { ...current };
+      for (const [id, marks] of Object.entries(pendingCandidateSlots)) {
+        next[id] = (next[id] ?? Array.from({ length: marksPerBallot }, () => 0)).map(
+          (value, slot) => value + (marks[slot] ?? 0),
+        );
+      }
+      return next;
+    });
     setPendingAdds({});
+    setPendingCandidateSlots(emptySlotMap(candidates, marksPerBallot));
     if (nextTotal >= roundCap && roundCap > 0) {
       setLimitOpen(true);
     }
   }
 
   function openSubmit() {
-    if (pendingTotal > 0 || !canSubmit) return;
+    if (pendingTotal > 0 || fillingBallot || !canSubmit) return;
     setError(null);
     setLimitOpen(false);
     setSubmitOpen(true);
@@ -142,21 +279,28 @@ export function CountForm({
     setSubmitOpen(false);
     setLimitOpen(false);
     setPendingAdds({});
-    setVotes(emptyTally(candidates));
+    setPendingCandidateSlots(emptySlotMap(candidates, marksPerBallot));
+    setDraft(emptyDraft(marksPerBallot));
+    setVotes(emptyTally(candidates, marksPerBallot));
+    setCandidateSlots(emptySlotMap(candidates, marksPerBallot));
     setLastId(null);
+    setLastSlot(null);
     setError(null);
     toast.message("Round cleared. Count this round again.");
   }
 
   async function confirmSubmit() {
     await run(async () => {
+      const slotVotes = multiSeat ? invalidSlots : undefined;
       const result = await submitCountRound(
         postId,
         rows.map((row) => ({
           candidate_id: row.candidate.id,
           votes: row.votes,
+          ...(multiSeat ? { slot_votes: candidateSlots[row.candidate.id] ?? [] } : {}),
         })),
         invalidCount,
+        slotVotes,
       );
       if (result.error) {
         setError(result.error);
@@ -171,13 +315,26 @@ export function CountForm({
       setSubmitOpen(false);
       setLimitOpen(false);
       setPendingAdds({});
-      setVotes(emptyTally(candidates));
+      setPendingCandidateSlots(emptySlotMap(candidates, marksPerBallot));
+      setDraft(emptyDraft(marksPerBallot));
+      setVotes(emptyTally(candidates, marksPerBallot));
+      setCandidateSlots(emptySlotMap(candidates, marksPerBallot));
       setLastId(null);
+      setLastSlot(null);
     });
   }
 
-  const lastVoteLabel =
-    lastId === INVALID_KEY ? "Invalid" : candidates.find((candidate) => candidate.id === lastId)?.name;
+  function labelForId(id: string | null) {
+    if (!id) return null;
+    if (id === INVALID_KEY) return "Invalid";
+    if (id.startsWith("__invalid_")) {
+      const slot = Number(id.replace("__invalid_", "").replace("__", ""));
+      return Number.isFinite(slot) ? `Invalid ${ordinalMark(slot)}` : "Invalid";
+    }
+    return candidates.find((candidate) => candidate.id === id)?.name ?? null;
+  }
+
+  const lastVoteLabel = labelForId(lastId);
 
   const tableRows: Array<{
     id: string;
@@ -187,6 +344,7 @@ export function CountForm({
     count: number;
     pending: number;
     invalid: boolean;
+    slot?: number;
   }> = [
     ...rows.map(({ candidate, votes: count }) => ({
       id: candidate.id,
@@ -197,15 +355,29 @@ export function CountForm({
       pending: pendingAdds[candidate.id] ?? 0,
       invalid: false,
     })),
-    {
-      id: INVALID_KEY,
-      name: "Invalid",
-      panel: "Spoilt / rejected",
-      classLabel: null,
-      count: invalidCount,
-      pending: pendingAdds[INVALID_KEY] ?? 0,
-      invalid: true,
-    },
+    ...(multiSeat
+      ? invalidSlots.map((count, slot) => ({
+          id: invalidSlotKey(slot),
+          name: `Invalid ${ordinalMark(slot)}`,
+          panel: "Spoilt / rejected",
+          classLabel: null,
+          count,
+          pending: pendingAdds[invalidSlotKey(slot)] ?? 0,
+          invalid: true,
+          slot,
+        }))
+      : [
+          {
+            id: INVALID_KEY,
+            name: "Invalid",
+            panel: "Spoilt / rejected",
+            classLabel: null,
+            count: invalidSlots[0] ?? 0,
+            pending: pendingAdds[INVALID_KEY] ?? 0,
+            invalid: true,
+            slot: 0,
+          },
+        ]),
   ];
 
   return (
@@ -232,10 +404,48 @@ export function CountForm({
             </div>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            Use Vote on a row, then Confirm to mark the count so far. Do not type numbers. Invalid ballots count
-            toward the round, not toward a candidate
-            {isLastRound ? `. This last round has ${formatNumber(roundCap)} remaining.` : "."}
+            {multiSeat
+              ? `Each ballot names ${marksPerBallot} candidates. Vote a candidate for the ${ordinalMark(0)} mark, then another for the ${ordinalMark(1)}${marksPerBallot > 2 ? ", and so on" : ""}. If a mark is spoilt, use that mark's Invalid row instead. The same candidate cannot be marked twice.`
+              : "Use Vote on a row, then Confirm to mark the count so far. Do not type numbers. Invalid ballots count toward the round, not toward a candidate"}
+            {isLastRound ? `. This last round has ${formatNumber(roundCap)} remaining.` : multiSeat ? "" : "."}
           </p>
+          {multiSeat && !blocked && !postComplete ? (
+            <div className={cn("mt-3 overflow-hidden rounded-xl border", theme.panel)}>
+              <div className={cn("h-1.5", theme.bar)} />
+              <div className="px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                {Array.from({ length: marksPerBallot }, (_, slot) => {
+                  const slotStyle = slotTheme(slot);
+                  const filled = Boolean(draft[slot]);
+                  const current = slot === activeSlot;
+                  return (
+                    <span
+                      key={slot}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide",
+                        current ? slotStyle.chip : "bg-white/80 text-slate-500",
+                      )}
+                    >
+                      {ordinalMark(slot)}
+                      {filled ? (
+                        <span className="normal-case tracking-normal font-semibold">
+                          {labelForId(draft[slot])}
+                        </span>
+                      ) : current ? (
+                        <span className="normal-case tracking-normal font-semibold">now</span>
+                      ) : null}
+                    </span>
+                  );
+                })}
+              </div>
+              <p className={cn("mt-2 text-sm font-semibold", theme.text)}>
+                Select the {ordinalMark(activeSlot)} candidate
+                {fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid{" "}
+                {ordinalMark(activeSlot)} only if that mark is spoilt.
+              </p>
+              </div>
+            </div>
+          ) : null}
         </div>
         {waitingOnSupervisor && <Badge variant="warning">Awaiting Returning Officer verification</Badge>}
         {rejectedRound && !waitingOnSupervisor && (
@@ -263,8 +473,18 @@ export function CountForm({
         )}
 
         <div className="flex items-stretch gap-3">
-          <div className="min-w-0 flex-1 overflow-hidden rounded-xl border">
-            <div className="hidden grid-cols-[minmax(0,1.15fr)_minmax(5.5rem,0.7fr)_5.5rem_6.5rem] gap-3 border-b bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:grid">
+          <div
+            className={cn(
+              "min-w-0 flex-1 overflow-hidden rounded-xl border",
+              multiSeat && theme.panel,
+            )}
+          >
+            <div
+              className={cn(
+                "hidden grid-cols-[minmax(0,1.15fr)_minmax(5.5rem,0.7fr)_5.5rem_6.5rem] gap-3 border-b px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] sm:grid",
+                multiSeat ? cn("border-transparent", theme.muted) : "bg-slate-50 text-muted-foreground",
+              )}
+            >
               <span>Candidate</span>
               <span>Panel</span>
               <span className="text-right">Votes</span>
@@ -273,15 +493,22 @@ export function CountForm({
             {tableRows.map((row) => {
               const shown = row.count + row.pending;
               const isLast = row.id === lastId;
-              const invalidActive = row.invalid && (row.pending > 0 || isLast);
+              const invalidActive = row.invalid && isLast;
+              const alreadyOnBallot = multiSeat && !row.invalid && draft.includes(row.id);
+              const wrongInvalidSlot = Boolean(
+                multiSeat && row.invalid && typeof row.slot === "number" && row.slot !== currentSlot,
+              );
+              const voteDisabled = !canCount || alreadyOnBallot || wrongInvalidSlot;
+              const lastTheme = lastSlot != null ? slotTheme(lastSlot) : null;
               return (
                 <div
                   key={row.id}
                   className={cn(
                     "flex items-center gap-3 border-b px-3 py-2.5 last:border-b-0 sm:grid sm:grid-cols-[minmax(0,1.15fr)_minmax(5.5rem,0.7fr)_5.5rem_6.5rem] sm:px-4",
                     invalidActive && "bg-red-50",
-                    row.pending > 0 && !row.invalid && "bg-amber-50",
-                    isLast && row.pending === 0 && !row.invalid && "bg-emerald-50/80",
+                    isLast && !row.invalid && (lastTheme?.last ?? "bg-emerald-50/80"),
+                    alreadyOnBallot && "opacity-60",
+                    multiSeat && "border-white/70",
                   )}
                 >
                   <p
@@ -309,7 +536,19 @@ export function CountForm({
                     >
                       {formatNumber(shown)}
                     </p>
-                    {row.pending > 0 ? (
+                    {multiSeat && !row.invalid ? (
+                      <p className="mt-0.5 text-[10px] font-semibold tabular-nums">
+                        {(candidateSlots[row.id] ?? []).map((count, slot) => {
+                          const pending = pendingCandidateSlots[row.id]?.[slot] ?? 0;
+                          return (
+                            <span key={slot} className={cn(slot === 0 ? "text-emerald-700" : "text-sky-700")}>
+                              {slot > 0 ? " · " : null}
+                              {ordinalMark(slot)} {formatNumber(count + pending)}
+                            </span>
+                          );
+                        })}
+                      </p>
+                    ) : row.pending > 0 ? (
                       <p className="mt-0.5 text-[11px] font-semibold text-amber-700">
                         +{formatNumber(row.pending)} queued
                       </p>
@@ -320,8 +559,11 @@ export function CountForm({
                       type="button"
                       size="lg"
                       variant={row.invalid ? "destructive" : "default"}
-                      disabled={!canCount}
-                      className="w-[5.75rem]"
+                      disabled={voteDisabled}
+                      className={cn(
+                        "w-[5.75rem]",
+                        !row.invalid && multiSeat && theme.vote,
+                      )}
                       onClick={() => queueVote(row.id)}
                     >
                       Vote
@@ -346,7 +588,7 @@ export function CountForm({
             >
               Confirm
             </Button>
-            {pendingTotal > 0 ? (
+            {pendingTotal > 0 || fillingBallot ? (
               <button
                 type="button"
                 className="text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
@@ -362,16 +604,39 @@ export function CountForm({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-foreground">
-              Last vote: {lastVoteLabel ?? "—"}
+              Last vote:{" "}
+              {lastVoteLabel ? (
+                <>
+                  {multiSeat && lastSlot != null ? (
+                    <span className={cn("mr-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide", slotTheme(lastSlot).chip)}>
+                      {ordinalMark(lastSlot)}
+                    </span>
+                  ) : null}
+                  {lastVoteLabel}
+                </>
+              ) : (
+                "—"
+              )}
             </p>
             {pendingTotal > 0 ? (
               <p className="text-xs font-medium text-amber-800">
                 {formatNumber(pendingTotal)} ballot{pendingTotal === 1 ? "" : "s"} not confirmed yet
               </p>
             ) : null}
-            {invalidCount + (pendingAdds[INVALID_KEY] ?? 0) > 0 ? (
+            {invalidCount +
+              (multiSeat
+                ? invalidSlots.reduce((sum, _, slot) => sum + (pendingAdds[invalidSlotKey(slot)] ?? 0), 0)
+                : pendingAdds[INVALID_KEY] ?? 0) >
+            0 ? (
               <p className="text-xs font-medium text-red-700">
-                {formatNumber(invalidCount + (pendingAdds[INVALID_KEY] ?? 0))} invalid
+                {multiSeat
+                  ? invalidSlots
+                      .map((count, slot) => {
+                        const pending = pendingAdds[invalidSlotKey(slot)] ?? 0;
+                        return `Invalid ${ordinalMark(slot)}: ${formatNumber(count + pending)}`;
+                      })
+                      .join(" · ")
+                  : `${formatNumber(invalidCount + (pendingAdds[INVALID_KEY] ?? 0))} invalid`}
               </p>
             ) : null}
           </div>
@@ -431,14 +696,35 @@ export function CountForm({
                     {row.candidate.name}
                     {classLabel ? <span className="ml-2 text-xs text-muted-foreground">{classLabel}</span> : null}
                   </span>
-                  <span className="font-semibold tabular-nums">{formatNumber(row.votes)}</span>
+                  <span className="font-semibold tabular-nums">
+                    {formatNumber(row.votes)}
+                    {multiSeat ? (
+                      <span className="ml-2 text-xs font-medium text-muted-foreground">
+                        {(candidateSlots[row.candidate.id] ?? []).map((count, slot) => (
+                          <span key={slot}>
+                            {slot > 0 ? " · " : null}
+                            {ordinalMark(slot)} {formatNumber(count)}
+                          </span>
+                        ))}
+                      </span>
+                    ) : null}
+                  </span>
                 </li>
               );
             })}
-            <li className="flex justify-between gap-4 text-red-700">
-              <span>Invalid</span>
-              <span className="font-semibold tabular-nums">{formatNumber(invalidCount)}</span>
-            </li>
+            {multiSeat
+              ? invalidSlots.map((count, slot) => (
+                  <li key={invalidSlotKey(slot)} className="flex justify-between gap-4 text-red-700">
+                    <span>Invalid {ordinalMark(slot)}</span>
+                    <span className="font-semibold tabular-nums">{formatNumber(count)}</span>
+                  </li>
+                ))
+              : (
+                  <li className="flex justify-between gap-4 text-red-700">
+                    <span>Invalid</span>
+                    <span className="font-semibold tabular-nums">{formatNumber(invalidCount)}</span>
+                  </li>
+                )}
           </ul>
           <p className="border-t pt-3 text-sm font-semibold">Total ballots: {formatNumber(committedTotal)}. Confirm?</p>
           {error && <p className="text-sm text-red-700">{error}</p>}

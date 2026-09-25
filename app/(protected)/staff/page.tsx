@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { liveDisplaySettings, percent } from "@/lib/utils";
+import { liveDisplaySettings, marksToBallots, percent } from "@/lib/utils";
 
 type AssignedPost = { id: string; name: string; seats: number; votes_polled: number };
 
@@ -69,7 +69,7 @@ export default async function StaffHomePage() {
                 const candidateVotes = (entries ?? [])
                   .filter((entry) => entry.round_id === round.id)
                   .reduce((inner, entry) => inner + entry.votes, 0);
-                return sum + candidateVotes + (round.invalid_votes ?? 0);
+                return sum + marksToBallots(candidateVotes + (round.invalid_votes ?? 0), post.seats);
               }, 0);
             const polled = post.votes_polled ?? 0;
             return (
@@ -86,8 +86,9 @@ export default async function StaffHomePage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      {post.seats} seat{post.seats > 1 ? "s" : ""} · {election?.count_limit ?? 0}{" "}
-                      ballots per round
+                      {post.seats} seat{post.seats > 1 ? "s" : ""}
+                      {post.seats > 1 ? ` · ${post.seats} votes per ballot` : ""} ·{" "}
+                      {election?.count_limit ?? 0} ballots per round
                     </p>
                     <Progress value={polled > 0 ? percent(counted, polled) : 0} />
                     <p className="text-xs text-muted-foreground">

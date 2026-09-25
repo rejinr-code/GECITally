@@ -4,27 +4,37 @@ import { createClient } from "@/lib/supabase/server";
 import { CountForm } from "@/components/counting/count-form";
 import { RoundCard } from "@/components/counting/round-card";
 import type { Candidate, CountEntry, CountRound } from "@/lib/types";
-import { liveDisplaySettings } from "@/lib/utils";
+import { liveDisplaySettings, marksToBallots } from "@/lib/utils";
 
 function cumulativeRoundScores(
   rounds: CountRound[],
   entries: CountEntry[],
   candidates: Candidate[],
+  seats: number,
 ) {
   const running = new Map(candidates.map((candidate) => [candidate.id, 0]));
   let runningInvalid = 0;
+  let runningSlots: number[] = Array.from({ length: Math.max(seats, 1) }, () => 0);
   const snapshots = new Map<
     string,
-    { entries: Array<CountEntry & { candidate_name: string }>; invalid: number }
+    { entries: Array<CountEntry & { candidate_name: string }>; invalid: number; invalidSlots: number[] }
   >();
 
   for (const round of [...rounds].sort((a, b) => a.round_number - b.round_number)) {
     const next = new Map(running);
     let nextInvalid = runningInvalid;
+    const nextSlots = [...runningSlots];
     for (const entry of entries.filter((item) => item.round_id === round.id)) {
       next.set(entry.candidate_id, (next.get(entry.candidate_id) ?? 0) + entry.votes);
     }
     nextInvalid += round.invalid_votes ?? 0;
+    const roundSlots =
+      round.invalid_slot_votes && round.invalid_slot_votes.length > 0
+        ? round.invalid_slot_votes
+        : [round.invalid_votes ?? 0];
+    for (let slot = 0; slot < nextSlots.length; slot += 1) {
+      nextSlots[slot] = (nextSlots[slot] ?? 0) + (roundSlots[slot] ?? 0);
+    }
     snapshots.set(round.id, {
       entries: candidates.map((candidate) => ({
         id: `${round.id}-${candidate.id}`,
@@ -34,11 +44,13 @@ function cumulativeRoundScores(
         candidate_name: candidate.name,
       })),
       invalid: nextInvalid,
+      invalidSlots: nextSlots,
     });
     if (round.status !== "rejected") {
       running.clear();
       next.forEach((votes, id) => running.set(id, votes));
       runningInvalid = nextInvalid;
+      runningSlots = nextSlots;
     }
   }
 
@@ -98,7 +110,7 @@ export default async function StaffPostPage({
       const candidateVotes = (entries ?? [])
         .filter((entry) => entry.round_id === round.id)
         .reduce((inner, entry) => inner + entry.votes, 0);
-      return sum + candidateVotes + (round.invalid_votes ?? 0);
+      return sum + marksToBallots(candidateVotes + (round.invalid_votes ?? 0), post.seats);
     }, 0);
   const nextRound =
     rejected?.round_number ??
@@ -110,6 +122,7 @@ export default async function StaffPostPage({
     (rounds ?? []) as CountRound[],
     (entries ?? []) as CountEntry[],
     candidateList,
+    post.seats ?? 1,
   );
 
   return (
@@ -121,6 +134,7 @@ export default async function StaffPostPage({
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">{post.name}</h1>
         <p className="text-muted-foreground">
           {election?.name} · {election?.count_limit} ballots per round
+          {post.seats > 1 ? ` · ${post.seats} votes per ballot` : ""}
           {post.votes_polled ? ` · ${post.votes_polled} polled` : ""}
         </p>
       </div>
@@ -137,6 +151,7 @@ export default async function StaffPostPage({
           roundSize={election?.count_limit ?? 1}
           votesPolled={post.votes_polled ?? 0}
           countedBallots={countedBallots}
+          seats={post.seats}
         />
         <aside className="flex min-h-[18rem] flex-col overflow-hidden rounded-xl border bg-card xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)]">
           <div className="border-b px-4 py-3">
@@ -154,6 +169,7 @@ export default async function StaffPostPage({
                     round={round as CountRound}
                     entries={snapshot?.entries ?? []}
                     invalidVotes={snapshot?.invalid}
+                    invalidSlotVotes={snapshot?.invalidSlots}
                     seats={post.seats}
                   />
                 );
