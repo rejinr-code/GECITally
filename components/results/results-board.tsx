@@ -4,9 +4,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRealtimeResults } from "@/hooks/use-realtime-results";
 import { PostSection } from "@/components/results/post-section";
-import { LatestResult, useLatestCountUpdate } from "@/components/results/latest-result";
+import { LatestResult, LATEST_REVEAL_MS, useLatestCountUpdate } from "@/components/results/latest-result";
 import { LiveCounter } from "@/components/results/live-counter";
-import { WINNER_BURST_MS } from "@/components/results/winner-burst";
 import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
 import { SignOutButton } from "@/components/layout/sign-out-button";
@@ -17,7 +16,6 @@ import {
   initials,
   liveDisplaySettings,
   percent,
-  postIsDeclared,
 } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
@@ -104,7 +102,7 @@ export function ResultsBoard({
   const [ready, setReady] = useState(false);
   const [postIndex, setPostIndex] = useState(0);
   const [cycle, setCycle] = useState(0);
-  const [winnerHold, setWinnerHold] = useState(false);
+  const [revealHold, setRevealHold] = useState(false);
 
   useEffect(() => {
     setReady(true);
@@ -118,31 +116,31 @@ export function ResultsBoard({
   const postProgress = percent(seatRace.declaredPosts, seatRace.postCount);
   const panels = useMemo(() => summarizePanels(posts), [posts]);
   const ticker = useMemo(() => raceTickerItems(posts), [posts]);
-  const latestUpdate = useLatestCountUpdate(posts);
+  const { post: latestUpdate, holdOrder } = useLatestCountUpdate(posts);
   const display = liveDisplaySettings(election);
   const rotateMs = display.results_rotate_seconds * 1000;
-  const currentDeclared = Boolean(
-    current && postIsDeclared(current) && (current.candidates ?? []).some((candidate) => candidate.votes > 0),
-  );
+  const latestKey = latestUpdate
+    ? `${latestUpdate.id}:${latestUpdate.verified_rounds}:${latestUpdate.pending_rounds}:${latestUpdate.total_verified_votes}:${latestUpdate.invalid_votes}`
+    : "";
 
   useEffect(() => {
-    if (!currentDeclared || !current) {
-      setWinnerHold(false);
+    if (!latestKey) {
+      setRevealHold(false);
       return;
     }
-    setWinnerHold(true);
-    const timer = window.setTimeout(() => setWinnerHold(false), WINNER_BURST_MS);
+    setRevealHold(true);
+    const timer = window.setTimeout(() => setRevealHold(false), LATEST_REVEAL_MS);
     return () => window.clearTimeout(timer);
-  }, [current?.id, currentDeclared]);
+  }, [latestKey]);
 
   useEffect(() => {
-    if (posts.length <= 1 || winnerHold) return;
+    if (posts.length <= 1 || revealHold) return;
     const timer = window.setInterval(() => {
       setPostIndex((index) => (index + 1) % posts.length);
       setCycle((value) => value + 1);
     }, rotateMs);
     return () => window.clearInterval(timer);
-  }, [posts.length, cycle, rotateMs, winnerHold]);
+  }, [posts.length, cycle, rotateMs, revealHold]);
 
   if (!ready || loading) {
     return (
@@ -246,9 +244,13 @@ export function ResultsBoard({
 
       <div className="relative z-10 flex min-h-0 flex-1 gap-2 p-2 md:p-3">
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <LatestResult post={latestUpdate} holdOrder={holdOrder} />
+        </main>
+        <aside className="hidden min-h-0 w-[22rem] shrink-0 flex-col lg:flex xl:w-[26rem]">
           {current ? (
             <div key={current.id} className="flex min-h-0 flex-1 flex-col">
               <PostSection
+                compact
                 post={{
                   ...current,
                   votes_polled: current.votes_polled ?? election.total_votes_polled,
@@ -259,10 +261,11 @@ export function ResultsBoard({
               />
             </div>
           ) : (
-            <p className="m-auto text-slate-500">No posts configured yet.</p>
+            <p className="m-auto px-4 text-center text-xs font-bold uppercase tracking-wide text-slate-400">
+              No posts configured yet.
+            </p>
           )}
-        </main>
-        <LatestResult post={latestUpdate} />
+        </aside>
       </div>
 
       <footer className="relative z-10 flex h-20 shrink-0 items-stretch gap-0 overflow-hidden border-t border-slate-200 bg-white">

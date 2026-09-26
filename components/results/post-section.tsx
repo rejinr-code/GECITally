@@ -26,11 +26,13 @@ export function PostSection({
   flashKey,
   serial,
   requireVerification,
+  compact = false,
 }: {
   post: LivePost;
   flashKey: number;
   serial: number;
   requireVerification: boolean;
+  compact?: boolean;
 }) {
   const ranked = rankByVotesThenName(post.candidates ?? [], (candidate) => candidate.votes, (candidate) => candidate.name);
   const maxVotes = ranked[0]?.votes ?? 0;
@@ -68,7 +70,7 @@ export function PostSection({
       animate={{ boxShadow: flashKey ? "0 0 0 4px rgba(16, 185, 129, 0.35)" : "0 1px 2px rgba(15, 23, 42, 0.06)" }}
       transition={{ duration: 0.8 }}
     >
-      {winners.length > 0 || tiedDeclared.length > 0 ? (
+      {!compact && (winners.length > 0 || tiedDeclared.length > 0) ? (
         <WinnerBurst postId={post.id} postName={post.name} winners={winners} tied={tiedDeclared} seats={post.seats} />
       ) : null}
 
@@ -86,7 +88,12 @@ export function PostSection({
             {serial}
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-black uppercase leading-tight tracking-tight text-slate-950 sm:text-lg md:text-xl">
+            <h2
+              className={cn(
+                "font-black uppercase leading-tight tracking-tight text-slate-950",
+                compact ? "text-sm" : "text-base sm:text-lg md:text-xl",
+              )}
+            >
               {post.name}
             </h2>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -95,26 +102,30 @@ export function PostSection({
               {post.pending_rounds ? ` · ${post.pending_rounds} pending` : ""}
             </p>
           </div>
-          <span
-            className={cn(
-              "hidden rounded-sm border px-2 py-1 text-[11px] font-black tracking-[0.2em] sm:inline",
-              declared ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-500",
-            )}
-          >
-            {statusLabel}
-          </span>
+          {compact ? null : (
+            <span
+              className={cn(
+                "hidden rounded-sm border px-2 py-1 text-[11px] font-black tracking-[0.2em] sm:inline",
+                declared ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-500",
+              )}
+            >
+              {statusLabel}
+            </span>
+          )}
         </div>
-        <div className="hidden items-center gap-5 bg-white px-4 sm:flex">
-          <StudioStat
-            label={invalidSlots ? "Invalid marks" : "Invalid"}
-            value={invalidVotes}
-            tone="invalid"
-          />
-          <StudioStat
-            label={requireVerification ? "Verified" : "Counted"}
-            value={post.total_verified_votes}
-          />
-        </div>
+        {compact ? null : (
+          <div className="hidden items-center gap-5 bg-white px-4 sm:flex">
+            <StudioStat
+              label={invalidSlots ? "Invalid marks" : "Invalid"}
+              value={invalidVotes}
+              tone="invalid"
+            />
+            <StudioStat
+              label={requireVerification ? "Verified" : "Counted"}
+              value={post.total_verified_votes}
+            />
+          </div>
+        )}
       </div>
 
       <div className="h-1 bg-slate-100">
@@ -182,7 +193,7 @@ export function PostSection({
         </AnimatePresence>
       </div>
 
-      {portraits.length > 0 ? (
+      {!compact && portraits.length > 0 ? (
         <div className="grid shrink-0 grid-cols-1 gap-px bg-slate-200 sm:grid-cols-2 lg:grid-cols-3">
           {portraits.map((candidate) => {
             const won = winners.some((winner) => winner.id === candidate.id);
