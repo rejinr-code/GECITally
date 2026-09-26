@@ -65,7 +65,10 @@ export function PostSection({
 
   return (
     <motion.section
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+      className={cn(
+        "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-sm",
+        declared ? "border-amber-200 bg-[#fff8e1]" : "border-emerald-200 bg-emerald-50/80",
+      )}
       initial={false}
       animate={{ boxShadow: flashKey ? "0 0 0 4px rgba(16, 185, 129, 0.35)" : "0 1px 2px rgba(15, 23, 42, 0.06)" }}
       transition={{ duration: 0.8 }}
@@ -74,17 +77,22 @@ export function PostSection({
         <WinnerBurst postId={post.id} postName={post.name} winners={winners} tied={tiedDeclared} seats={post.seats} />
       ) : null}
 
-      <div className="flex shrink-0 items-stretch gap-0 border-b border-slate-200">
+      <div className={cn("flex shrink-0 items-stretch gap-0 border-b", declared ? "border-amber-200" : "border-emerald-200")}>
         <div
           className={cn(
             "flex items-center px-3 text-[11px] font-black tracking-[0.28em] sm:px-4 sm:text-xs",
-            declared ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-700",
+            declared ? "bg-[#c9a227] text-slate-950" : "bg-emerald-900 text-white",
           )}
         >
-          {declared ? "RESULT" : "LIVE COUNT"}
+          {declared ? "FINAL" : "LIVE"}
         </div>
-        <div className="flex min-w-0 flex-1 items-center gap-3 bg-white px-3 py-2 sm:px-4">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-sm font-black text-slate-700">
+        <div className={cn("flex min-w-0 flex-1 items-center gap-3 px-3 py-2 sm:px-4", declared ? "bg-[#fff8e1]" : "bg-emerald-50/80")}>
+          <span
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-sm text-sm font-black",
+              declared ? "bg-amber-100 text-amber-950" : "bg-emerald-100 text-emerald-950",
+            )}
+          >
             {serial}
           </span>
           <div className="min-w-0 flex-1">
@@ -96,25 +104,34 @@ export function PostSection({
             >
               {post.name}
             </h2>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <p
+              className={cn(
+                "text-[11px] font-semibold uppercase tracking-[0.16em]",
+                declared ? "text-amber-900/70" : "text-emerald-800/80",
+              )}
+            >
+              {declared ? "Declared result" : "Counting in progress"}
+              {" · "}
               {post.seats} seat{post.seats > 1 ? "s" : ""} · {formatNumber(countedBallots)}
               {votesPolled > 0 ? ` / ${formatNumber(votesPolled)} polled` : " counted"}
               {post.pending_rounds ? ` · ${post.pending_rounds} pending` : ""}
             </p>
           </div>
-          {compact ? null : (
-            <span
-              className={cn(
-                "hidden rounded-sm border px-2 py-1 text-[11px] font-black tracking-[0.2em] sm:inline",
-                declared ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-500",
-              )}
-            >
-              {statusLabel}
-            </span>
-          )}
+          <span
+            className={cn(
+              "shrink-0 rounded-sm px-2 py-1 text-[11px] font-black tracking-[0.2em]",
+              declared
+                ? "bg-[#c9a227] text-slate-950"
+                : statusLabel === "LEADING"
+                  ? "bg-emerald-800 text-white"
+                  : "bg-emerald-900 text-white",
+            )}
+          >
+            {statusLabel}
+          </span>
         </div>
         {compact ? null : (
-          <div className="hidden items-center gap-5 bg-white px-4 sm:flex">
+          <div className={cn("hidden items-center gap-5 px-4 sm:flex", declared ? "bg-[#fff8e1]" : "bg-emerald-50/80")}>
             <StudioStat
               label={invalidSlots ? "Invalid marks" : "Invalid"}
               value={invalidVotes}
@@ -128,9 +145,9 @@ export function PostSection({
         )}
       </div>
 
-      <div className="h-1 bg-slate-100">
+      <div className={cn("h-1", declared ? "bg-amber-100" : "bg-emerald-100")}>
         <div
-          className="h-full bg-slate-400"
+          className={cn("h-full", declared ? "bg-[#c9a227]" : "bg-emerald-700")}
           style={{ width: `${votesPolled > 0 ? percent(countedBallots, votesPolled) : 0}%` }}
         />
       </div>
@@ -175,7 +192,6 @@ export function PostSection({
                   <InvalidVotesRow
                     key={`invalid-${slot}`}
                     votes={votes}
-                    maxVotes={Math.max(maxVotes, ...invalidSlots)}
                     share={percent(votes, countedMarks)}
                     label={`Invalid ${ordinalMark(slot)}`}
                   />
@@ -185,7 +201,6 @@ export function PostSection({
               ? (
                   <InvalidVotesRow
                     votes={invalidVotes}
-                    maxVotes={Math.max(maxVotes, invalidVotes)}
                     share={percent(invalidVotes, countedMarks)}
                   />
                 )
@@ -307,12 +322,12 @@ function PortraitStrip({ candidate, badge }: { candidate: LiveCandidate; badge: 
       </div>
       <span
         className={cn(
-          "rounded-sm border px-2 py-1 text-[11px] font-black tracking-[0.16em]",
+          "rounded-sm px-2 py-1 text-[11px] font-black tracking-[0.16em]",
           badge === "WON"
-            ? "border-slate-900 bg-slate-900 text-white"
+            ? "bg-[#c9a227] text-slate-950"
             : badge === "TIE"
-              ? "border-slate-400 text-slate-600"
-              : "border-slate-300 text-slate-500",
+              ? "border border-amber-700 bg-amber-100 text-amber-900"
+              : "bg-emerald-800 text-white",
         )}
       >
         {badge}
@@ -324,41 +339,37 @@ function PortraitStrip({ candidate, badge }: { candidate: LiveCandidate; badge: 
 
 function InvalidVotesRow({
   votes,
-  maxVotes,
   share,
   label = "Invalid",
 }: {
   votes: number;
-  maxVotes: number;
   share: number;
   label?: string;
 }) {
-  const width = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
-
   return (
     <motion.article
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-3 border-b border-slate-100 bg-white px-3 py-2 text-slate-700"
+      className="border-b border-slate-100 bg-white px-3 py-2 text-slate-700"
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-[10px] font-black text-slate-500">
-        INV
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-sm font-black uppercase tracking-wide">{label}</h3>
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-          <motion.div
-            className="h-full rounded-full bg-slate-400"
-            initial={false}
-            animate={{ width: `${width}%` }}
-            transition={{ type: "spring", stiffness: 80, damping: 20 }}
-          />
+      <div className="flex items-center gap-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-slate-100 text-[10px] font-black text-slate-500">
+          INV
+        </span>
+        <h3 className="min-w-0 flex-1 text-sm font-black uppercase tracking-wide">{label}</h3>
+        <div className="w-[4.5rem] shrink-0 text-right sm:w-24">
+          <LiveCounter value={votes} className="block text-2xl font-black tabular-nums leading-none text-slate-700 sm:text-3xl" />
+          <p className="text-[10px] font-bold tabular-nums text-slate-400">{share}%</p>
         </div>
       </div>
-      <div className="shrink-0 text-right">
-        <LiveCounter value={votes} className="block text-2xl font-black tabular-nums leading-none text-slate-700 sm:text-3xl" />
-        <p className="text-[10px] font-bold tabular-nums text-slate-400">{share}%</p>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
+        <motion.div
+          className="h-full rounded-full bg-slate-400"
+          initial={false}
+          animate={{ width: `${share}%` }}
+          transition={{ type: "spring", stiffness: 80, damping: 20 }}
+        />
       </div>
     </motion.article>
   );

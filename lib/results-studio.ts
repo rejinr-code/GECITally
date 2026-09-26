@@ -217,26 +217,44 @@ function tickerPerson(candidate: LiveCandidate, status: TickerPerson["status"]):
 }
 
 export function raceTickerItems(posts: LivePost[]): TickerItem[] {
-  return posts.flatMap((post) => {
+  const live: TickerItem[] = [];
+  const finals: TickerItem[] = [];
+
+  for (const post of posts) {
     const race = postRaceStatus(post);
-    if (!race.hasVotes) return [];
-    const people: TickerPerson[] = race.declared
-      ? [
-          ...race.elected.map((candidate) => tickerPerson(candidate, "WON")),
-          ...race.tied.map((candidate) => tickerPerson(candidate, "TIE")),
-        ]
-      : [
-          ...race.elected.map((candidate) => tickerPerson(candidate, "LEAD")),
-          ...race.tied.map((candidate) => tickerPerson(candidate, "TIE")),
-          ...race.trailers.map((candidate) => tickerPerson(candidate, "TRAIL")),
-        ];
-    if (!people.length) return [];
-    return [
-      {
-        post: shortPostName(post.name),
-        label: race.label,
-        people,
-      },
-    ];
-  });
+    const candidates = post.candidates ?? [];
+    if (candidates.length === 0) continue;
+
+    if (race.declared) {
+      const people = [
+        ...race.elected.map((candidate) => tickerPerson(candidate, "WON")),
+        ...race.tied.map((candidate) => tickerPerson(candidate, "TIE")),
+      ];
+      if (!people.length) continue;
+      finals.push({ post: shortPostName(post.name), label: race.label, people });
+      continue;
+    }
+
+    const inPlay =
+      race.hasVotes ||
+      (post.votes_polled ?? 0) > 0 ||
+      (post.pending_rounds ?? 0) > 0 ||
+      (post.verified_rounds ?? 0) > 0;
+    if (!inPlay) continue;
+
+    const leaderIds = new Set([...race.elected, ...race.tied].map((candidate) => candidate.id));
+    live.push({
+      post: shortPostName(post.name),
+      label: race.hasVotes ? "LEAD" : "COUNTING",
+      people: [
+        ...race.elected.map((candidate) => tickerPerson(candidate, "LEAD")),
+        ...race.tied.map((candidate) => tickerPerson(candidate, "TIE")),
+        ...race.ranked
+          .filter((candidate) => !leaderIds.has(candidate.id))
+          .map((candidate) => tickerPerson(candidate, "TRAIL")),
+      ],
+    });
+  }
+
+  return [...live, ...finals];
 }

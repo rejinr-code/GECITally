@@ -364,16 +364,34 @@ function AnnouncedTicker({ items }: { items: TickerItem[] }) {
 
 function TickerCard({ item }: { item: TickerItem }) {
   const mixed = item.people.some((person) => person.status === "WON") && item.people.some((person) => person.status === "TIE");
+  const declared = item.label === "WON" || item.label === "TIE";
   const verb =
     mixed ? "RESULT" : item.label === "WON" ? "WINS" : item.label === "TIE" ? "TIE" : item.label === "LEAD" ? "LEADING" : "COUNTING";
 
   return (
-    <article className="flex h-full items-stretch border-r border-slate-200 bg-white">
-      <div className="flex min-w-[7.5rem] max-w-[10rem] shrink-0 flex-col justify-center bg-slate-900 px-3 py-2 text-white">
-        <span className="text-[9px] font-black tracking-[0.28em] text-red-400">POST</span>
+    <article
+      className={cn(
+        "flex h-full items-stretch border-r",
+        declared ? "border-amber-200 bg-[#fff8e1]" : "border-emerald-200 bg-emerald-50/80",
+      )}
+    >
+      <div
+        className={cn(
+          "flex min-w-[7.5rem] max-w-[10rem] shrink-0 flex-col justify-center px-3 py-2",
+          declared ? "bg-[#c9a227] text-slate-950" : "bg-emerald-900 text-white",
+        )}
+      >
+        <span className={cn("text-[9px] font-black tracking-[0.28em]", declared ? "text-slate-950/70" : "text-emerald-200")}>
+          {declared ? "FINAL" : "LIVE"}
+        </span>
         <p className="mt-0.5 text-[13px] font-black uppercase leading-tight tracking-wide">{item.post}</p>
       </div>
       <div className="flex items-center gap-3 px-3">
+        {!declared ? (
+          <p className="max-w-[5.5rem] shrink-0 text-[10px] font-black uppercase leading-tight tracking-wide text-emerald-900">
+            Counting in progress
+          </p>
+        ) : null}
         {item.people.map((person) => {
           const theme = panelTheme(person.panel, person.color);
           const first = person.name.split(" ")[0] ?? person.name;
@@ -389,7 +407,7 @@ function TickerCard({ item }: { item: TickerItem }) {
                   ? "LEADING"
                   : "TRAILING";
           return (
-            <div key={person.name} className="flex items-center gap-2">
+            <div key={person.name} className={cn("flex items-center gap-2", trail && "opacity-70")}>
               {person.photo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -397,14 +415,14 @@ function TickerCard({ item }: { item: TickerItem }) {
                   alt=""
                   className={cn(
                     "size-14 shrink-0 rounded-full object-cover",
-                    won || lead ? "ring-2 ring-slate-900" : "ring-1 ring-slate-300",
+                    won ? "ring-2 ring-[#c9a227]" : lead ? "ring-2 ring-emerald-700" : "ring-1 ring-slate-300",
                   )}
                 />
               ) : (
                 <div
                   className={cn(
                     "flex size-14 shrink-0 items-center justify-center rounded-full text-xs font-black",
-                    won || lead ? "ring-2 ring-slate-900" : "ring-1 ring-slate-300",
+                    won ? "ring-2 ring-[#c9a227]" : lead ? "ring-2 ring-emerald-700" : "ring-1 ring-slate-300",
                   )}
                   style={{ background: theme.bg, color: theme.fg }}
                 >
@@ -415,7 +433,7 @@ function TickerCard({ item }: { item: TickerItem }) {
                 <p
                   className={cn(
                     "text-[9px] font-black tracking-[0.22em]",
-                    won ? "text-red-600" : lead ? "text-slate-700" : "text-slate-400",
+                    won ? "text-amber-800" : lead ? "text-emerald-800" : "text-slate-400",
                   )}
                 >
                   {statusLabel}
@@ -433,11 +451,11 @@ function TickerCard({ item }: { item: TickerItem }) {
         <span
           className={cn(
             "shrink-0 rounded-sm px-2 py-1 text-[10px] font-black tracking-[0.16em]",
-            verb === "WINS"
-              ? "bg-slate-900 text-white"
+            verb === "WINS" || verb === "RESULT"
+              ? "bg-[#c9a227] text-slate-950"
               : verb === "TIE"
-                ? "border border-slate-400 text-slate-600"
-                : "border border-slate-300 text-slate-500",
+                ? "border border-amber-700 bg-amber-100 text-amber-900"
+                : "bg-emerald-800 text-white",
           )}
         >
           {verb}
