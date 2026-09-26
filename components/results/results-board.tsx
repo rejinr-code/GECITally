@@ -455,7 +455,6 @@ function PanelStandingStrip({ panels }: { panels: PanelStanding[] }) {
 
 function PanelStandingCard({ panel }: { panel: PanelStanding }) {
   const theme = panelTheme(panel.name, panel.color);
-  const darkText = theme.fg === "#111827";
   const outcomes = [
     { label: "Won", value: panel.won },
     { label: "Lead", value: panel.lead },
@@ -475,24 +474,14 @@ function PanelStandingCard({ panel }: { panel: PanelStanding }) {
             <StandingStat key={stat.label} label={stat.label} value={stat.value} />
           ))}
         </div>
-        <div className={cn("mb-0.5 h-8 w-px shrink-0", darkText ? "bg-black/20" : "bg-white/25")} />
-        <StandingStat label="Votes" value={panel.votes} align="right" />
       </div>
     </div>
   );
 }
 
-function StandingStat({
-  label,
-  value,
-  align = "center",
-}: {
-  label: string;
-  value: number;
-  align?: "center" | "right";
-}) {
+function StandingStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className={cn("min-w-0", align === "right" ? "w-12 shrink-0 text-right sm:w-14" : "text-center")}>
+    <div className="min-w-0 text-center">
       <p className={cn("text-lg font-black tabular-nums leading-none sm:text-xl", value === 0 && "opacity-40")}>
         {formatNumber(value)}
       </p>
