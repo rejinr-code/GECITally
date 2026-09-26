@@ -163,7 +163,7 @@ export function PostSection({
                   elected={isElected}
                   tied={isTied}
                   maxVotes={maxVotes}
-                  share={percent(candidate.votes, candidateVotes)}
+                  share={percent(candidate.votes, countedMarks)}
                   margin={leadMargin}
                 />
               );

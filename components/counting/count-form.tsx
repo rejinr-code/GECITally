@@ -441,7 +441,7 @@ export function CountForm({
                 row.candidate.year,
                 row.candidate.semester,
               );
-              const share = percent(row.votes, candidateVotes);
+              const share = percent(row.votes, candidateVotes + invalidTotal);
               const rank = competitionRank(ranked, index, (item) => item.votes);
               return (
                 <div

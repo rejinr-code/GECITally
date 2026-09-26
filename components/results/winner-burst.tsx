@@ -47,7 +47,7 @@ export function WinnerBurst({
 
   return (
     <motion.div
-      className="pointer-events-none absolute inset-0 z-20 overflow-hidden"
+      className="pointer-events-none absolute inset-0 z-30 overflow-hidden"
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
     >

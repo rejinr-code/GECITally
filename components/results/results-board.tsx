@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRealtimeResults } from "@/hooks/use-realtime-results";
 import { PostSection } from "@/components/results/post-section";
-import { LatestResult, LATEST_REVEAL_MS, useLatestCountUpdate } from "@/components/results/latest-result";
+import { LatestResult, latestHoldMs, useLatestCountUpdate } from "@/components/results/latest-result";
 import { LiveCounter } from "@/components/results/live-counter";
 import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
@@ -120,8 +120,9 @@ export function ResultsBoard({
   const display = liveDisplaySettings(election);
   const rotateMs = display.results_rotate_seconds * 1000;
   const latestKey = latestUpdate
-    ? `${latestUpdate.id}:${latestUpdate.verified_rounds}:${latestUpdate.pending_rounds}:${latestUpdate.total_verified_votes}:${latestUpdate.invalid_votes}`
+    ? `${latestUpdate.id}:${latestUpdate.verified_rounds}:${latestUpdate.pending_rounds}:${latestUpdate.total_verified_votes}:${latestUpdate.invalid_votes}:${latestUpdate.is_finalised ? "1" : "0"}`
     : "";
+  const holdMs = latestHoldMs(latestUpdate);
 
   useEffect(() => {
     if (!latestKey) {
@@ -129,9 +130,9 @@ export function ResultsBoard({
       return;
     }
     setRevealHold(true);
-    const timer = window.setTimeout(() => setRevealHold(false), LATEST_REVEAL_MS);
+    const timer = window.setTimeout(() => setRevealHold(false), holdMs);
     return () => window.clearTimeout(timer);
-  }, [latestKey]);
+  }, [latestKey, holdMs]);
 
   useEffect(() => {
     if (posts.length <= 1 || revealHold) return;

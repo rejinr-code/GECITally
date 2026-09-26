@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { LiveCounter } from "@/components/results/live-counter";
+import { WINNER_BURST_MS, WinnerBurst } from "@/components/results/winner-burst";
 import { candidateClassLabel } from "@/lib/candidate-class";
 import { panelKey, panelTheme, postRaceStatus } from "@/lib/results-studio";
 import type { LiveCandidate, LivePost } from "@/lib/types";
@@ -10,6 +11,7 @@ import {
   cn,
   competitionRank,
   initials,
+  ordinalMark,
   percent,
   postIsDeclared,
   rankByVotesThenName,
@@ -19,6 +21,11 @@ const POST_MS = 3400;
 const PEOPLE_MS = 2200;
 const BARS_MS = 1600;
 export const LATEST_REVEAL_MS = POST_MS + PEOPLE_MS + BARS_MS;
+
+export function latestHoldMs(post: LivePost | null) {
+  if (!post || !postIsDeclared(post)) return LATEST_REVEAL_MS;
+  return LATEST_REVEAL_MS + WINNER_BURST_MS;
+}
 
 type Phase = "post" | "people" | "bars" | "rank";
 
@@ -129,6 +136,10 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
   const rows = phase === "rank" ? ranked : intro;
   const maxVotes = ranked[0]?.votes ?? 0;
   const candidateVotes = ranked.reduce((sum, candidate) => sum + candidate.votes, 0);
+  const invalidVotes = post.invalid_votes ?? 0;
+  const countedMarks = candidateVotes + invalidVotes;
+  const invalidSlots =
+    post.invalid_slot_votes && post.invalid_slot_votes.length > 1 ? post.invalid_slot_votes : null;
   const showPeople = phase !== "post";
   const showBars = phase === "bars" || phase === "rank";
   const showRank = phase === "rank";
@@ -243,16 +254,46 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
                     index={index}
                     badge={badge}
                     maxVotes={maxVotes}
-                    share={percent(person.votes, candidateVotes)}
+                    share={percent(person.votes, countedMarks)}
                     showBars={showBars}
                     showRank={showRank}
                   />
                 );
               })}
+              {showBars && invalidSlots
+                ? invalidSlots.some((votes) => votes > 0)
+                  ? invalidSlots.map((votes, slot) => (
+                      <InvalidRevealRow
+                        key={`invalid-${slot}`}
+                        label={`Invalid ${ordinalMark(slot)}`}
+                        votes={votes}
+                        maxVotes={Math.max(maxVotes, ...invalidSlots)}
+                        share={percent(votes, countedMarks)}
+                      />
+                    ))
+                  : null
+                : showBars && invalidVotes > 0
+                  ? (
+                      <InvalidRevealRow
+                        votes={invalidVotes}
+                        maxVotes={Math.max(maxVotes, invalidVotes)}
+                        share={percent(invalidVotes, countedMarks)}
+                      />
+                    )
+                  : null}
             </div>
           )}
         </div>
       </div>
+      {showRank && race.declared && (race.elected.length > 0 || race.tied.length > 0) ? (
+        <WinnerBurst
+          postId={`${post.id}:${signature}`}
+          postName={post.name}
+          winners={race.elected}
+          tied={race.tied}
+          seats={post.seats}
+        />
+      ) : null}
     </section>
   );
 }
@@ -367,6 +408,48 @@ function RevealRow({
       <div className={cn("w-16 shrink-0 text-right sm:w-24", showBars ? "opacity-100" : "opacity-0")}>
         <LiveCounter value={showBars ? person.votes : 0} className="block text-2xl font-black tabular-nums leading-none text-slate-950 sm:text-4xl" />
         <p className="mt-0.5 text-[10px] font-bold tabular-nums text-slate-500">{showBars ? `${share}%` : ""}</p>
+      </div>
+    </motion.article>
+  );
+}
+
+function InvalidRevealRow({
+  votes,
+  maxVotes,
+  share,
+  label = "Invalid",
+}: {
+  votes: number;
+  maxVotes: number;
+  share: number;
+  label?: string;
+}) {
+  const width = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
+
+  return (
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center gap-3 border-t border-red-100 bg-red-50 px-4 py-3 sm:gap-4 sm:px-6"
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-red-100 text-[10px] font-black text-red-700">
+        INV
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-black tracking-tight text-red-900 sm:text-2xl">{label}</p>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-red-100">
+          <motion.div
+            className="h-full rounded-full bg-red-400"
+            initial={{ width: 0 }}
+            animate={{ width: `${width}%` }}
+            transition={{ type: "spring", stiffness: 55, damping: 18 }}
+          />
+        </div>
+      </div>
+      <div className="w-16 shrink-0 text-right sm:w-24">
+        <LiveCounter value={votes} className="block text-2xl font-black tabular-nums leading-none text-red-700 sm:text-4xl" />
+        <p className="mt-0.5 text-[10px] font-bold tabular-nums text-red-600">{share}%</p>
       </div>
     </motion.article>
   );
