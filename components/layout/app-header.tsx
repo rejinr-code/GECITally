@@ -10,6 +10,7 @@ import { cn, roleHome, roleLabel } from "@/lib/utils";
 const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
   admin: [
     { href: "/admin", label: "Dashboard" },
+    { href: "/admin/report", label: "Result report" },
     { href: "/results", label: "Live results" },
   ],
   staff: [
@@ -18,13 +19,16 @@ const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
   ],
   supervisor: [
     { href: "/supervisor", label: "Returning Officer" },
+    { href: "/supervisor/report", label: "Result report" },
     { href: "/results", label: "Live results" },
   ],
   display: [{ href: "/results", label: "Live results" }],
 };
 
 function isCurrent(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
+  if (pathname === href) return true;
+  if (href === "/admin" || href === "/supervisor") return false;
+  return pathname.startsWith(`${href}/`);
 }
 
 export function AppHeader({

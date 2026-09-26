@@ -47,3 +47,25 @@ export function candidateClassLabel(
   if (resolvedYear) return `${yearLabel(resolvedYear)} Year`;
   return "";
 }
+
+export function reportClassLabel(
+  branch?: string | null,
+  year?: number | null,
+  semester?: number | null,
+  electionDate?: string | Date | null,
+) {
+  const code = branch?.trim().toUpperCase() ?? "";
+  if (semester && semester >= 1 && semester <= 8) {
+    return code ? `S${semester} ${code}` : `S${semester}`;
+  }
+  const resolvedYear = academicYear(year, semester);
+  if (resolvedYear) {
+    const month = electionDate
+      ? (typeof electionDate === "string" ? new Date(electionDate) : electionDate).getMonth() + 1
+      : 0;
+    const oddTerm = month >= 7;
+    const sem = oddTerm ? resolvedYear * 2 - 1 : resolvedYear * 2;
+    return code ? `S${sem} ${code}` : `S${sem}`;
+  }
+  return code || "—";
+}

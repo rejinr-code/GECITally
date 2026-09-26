@@ -1,11 +1,17 @@
+import Link from "next/link";
+import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/supabase/server";
 import { VerificationCard } from "@/components/supervisor/verification-card";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { countingComplete } from "@/lib/result-report";
 import type { Candidate, CountEntry, CountRound, PendingRound, Post, Profile } from "@/lib/types";
 import { liveDisplaySettings, marksToBallots, percent } from "@/lib/utils";
+import { FileText } from "lucide-react";
 
 export default async function SupervisorPage() {
+  await requireRole("supervisor");
   const supabase = await createClient();
 
   const { data: election } = await supabase
@@ -60,6 +66,10 @@ export default async function SupervisorPage() {
   const candidateMap = new Map((candidates ?? []).map((candidate) => [candidate.id, candidate]));
 
   const requireSupervisor = liveDisplaySettings(election).counting_requires_supervisor;
+  const reportReady = election
+    ? election.state === "finalised" ||
+      countingComplete(posts ?? [], verified ?? [], verifiedEntries ?? []).complete
+    : false;
 
   const queue: PendingRound[] = ((pendingRounds ?? []) as CountRound[]).flatMap((round) => {
     const post = postMap.get(round.post_id);
@@ -95,6 +105,34 @@ export default async function SupervisorPage() {
           </p>
         ) : null}
       </div>
+
+      {election ? (
+        <Card className={reportReady ? "border-emerald-300 bg-emerald-50/80" : "border-dashed"}>
+          <CardHeader>
+            <CardTitle className="text-base">Result declaration report</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <p className="max-w-xl text-sm text-muted-foreground">
+              {reportReady
+                ? "Counting is complete. Generate the official college result declaration for print or PDF."
+                : "This report unlocks after every post with polled votes has been fully counted and verified."}
+            </p>
+            {reportReady ? (
+              <Button asChild>
+                <Link href="/supervisor/report">
+                  <FileText />
+                  Generate report
+                </Link>
+              </Button>
+            ) : (
+              <Button disabled>
+                <FileText />
+                Generate report
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {(posts ?? []).map((post) => {

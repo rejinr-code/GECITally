@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
 import { liveDisplaySettings } from "@/lib/utils";
+import Link from "next/link";
+import { FileText } from "lucide-react";
 
 const STATES: ElectionState[] = ["setup", "counting", "finalised"];
 
@@ -242,6 +244,20 @@ export function ElectionSettings({ election }: { election: Election | null }) {
               </Button>
             ))}
           </div>
+          {election?.state === "finalised" ? (
+            <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4">
+              <p className="text-sm font-medium text-emerald-950">Result declaration report</p>
+              <p className="mt-1 text-xs text-emerald-800">
+                Counting is closed. Generate the official college result declaration for print or PDF.
+              </p>
+              <Button asChild className="mt-3">
+                <Link href="/admin/report">
+                  <FileText />
+                  Generate report
+                </Link>
+              </Button>
+            </div>
+          ) : null}
           <div className="rounded-lg border border-red-200 bg-red-50 p-4">
             <p className="text-sm font-medium text-red-800">Reset all counts</p>
             <p className="mt-1 text-xs text-red-700">

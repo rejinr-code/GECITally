@@ -20,6 +20,13 @@ export type Election = {
   results_require_verification: boolean;
   counting_require_verification: boolean;
   created_at: string;
+  report_file_no?: string | null;
+  report_dated?: string | null;
+  report_ref_no?: string | null;
+  report_ref_dated?: string | null;
+  report_ceremony_date?: string | null;
+  report_ceremony_time?: string | null;
+  report_ceremony_venue?: string | null;
 };
 
 export type Post = {

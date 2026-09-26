@@ -166,3 +166,28 @@ body {
   );
   pointer-events: none;
 }
+
+@page {
+  size: A4;
+  margin: 16mm 18mm 18mm;
+}
+
+.result-report {
+  color: #000;
+  background: #fff;
+}
+
+@media print {
+  html,
+  body {
+    background: white !important;
+  }
+
+  .result-report thead {
+    display: table-header-group;
+  }
+
+  .result-report tr {
+    break-inside: avoid;
+  }
+}

@@ -22,6 +22,7 @@ export function AdminConsole({
   schemaNeedsLiveDisplay,
   schemaNeedsCountingMode,
   schemaNeedsPanelColor,
+  schemaNeedsReportDetails,
 }: {
   election: Election | null;
   electionId: string | null;
@@ -34,6 +35,7 @@ export function AdminConsole({
   schemaNeedsLiveDisplay: boolean;
   schemaNeedsCountingMode: boolean;
   schemaNeedsPanelColor: boolean;
+  schemaNeedsReportDetails: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -65,6 +67,12 @@ export function AdminConsole({
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           Run <code className="font-medium">supabase/migrations/0017_panel_color.sql</code> in
           the Supabase SQL editor to assign colours to panels on the live results board.
+        </p>
+      )}
+      {schemaNeedsReportDetails && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Run <code className="font-medium">supabase/migrations/0018_result_report_details.sql</code> in
+          the Supabase SQL editor to save result-declaration file number, dates, and swearing-in details.
         </p>
       )}
       <Tabs defaultValue="election">

@@ -18,14 +18,27 @@ export function ProtectedShell({
 }) {
   const pathname = usePathname();
   const countingDesk = pathname.startsWith("/staff/") && pathname !== "/staff";
+  const reportPage = pathname.endsWith("/report");
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <AppHeader role={role} name={name} />
-      <div className={cn("mx-auto w-full max-w-6xl flex-1 px-4", countingDesk ? "py-4" : "py-8")}>
+      <div className="print:hidden">
+        <AppHeader role={role} name={name} />
+      </div>
+      <div
+        className={cn(
+          "mx-auto w-full flex-1 px-4",
+          reportPage ? "max-w-[230mm] py-6 print:max-w-none print:px-0 print:py-0" : "max-w-6xl",
+          !reportPage && (countingDesk ? "py-4" : "py-8"),
+        )}
+      >
         {children}
       </div>
-      {countingDesk ? null : <SiteFooter />}
+      {countingDesk || reportPage ? null : (
+        <div className="print:hidden">
+          <SiteFooter />
+        </div>
+      )}
     </div>
   );
 }
