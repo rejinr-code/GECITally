@@ -81,12 +81,25 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### 6. Counting Supervisor mobile app
+
+A Flutter app in `mobile/` lets Counting Supervisors sign in and run the same Vote → Confirm counting desk on Android and iOS. Theme, crest, and `submit_count_round` RPC match the web app.
+
+```powershell
+cd mobile
+copy .env.example .env
+# set SUPABASE_URL and SUPABASE_ANON_KEY to the same public values as the web app
+.\tool\run.ps1
+```
+
+`.\tool\run.ps1` can also read `NEXT_PUBLIC_SUPABASE_*` from the repo `.env.local`. Never put `SUPABASE_SERVICE_ROLE_KEY` in the mobile app. See `mobile/README.md`.
+
 ## Roles
 
 | Path | Role | Purpose |
 |---|---|---|
 | `/admin` | Admin | Panels, posts, candidates, people, count limit, live display, election state |
-| `/staff` | Counting Supervisor | Enter per-candidate and invalid counts for assigned posts; open live results |
+| `/staff` | Counting Supervisor | Enter per-candidate and invalid counts for assigned posts; open live results. Same desk is in the Flutter app (`mobile/`). |
 | `/supervisor` | Returning Officer | Verify or reject submitted rounds; open live results |
 | `/results/login` | Public results | Dedicated hall / public results login |
 | `/results` | Admin, Counting Supervisor, Returning Officer, Public results | Live animated results (login required) |
