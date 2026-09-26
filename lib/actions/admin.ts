@@ -505,6 +505,70 @@ export async function deleteStaffAccount(staffId: string, password: string) {
   }
 }
 
+export async function randomizeDummyPolled(
+  electionId: string,
+  minBallots: number,
+  maxBallots: number,
+  password: string,
+) {
+  try {
+    if (typeof password !== "string" || !password.trim()) {
+      return { error: "Enter your admin password to confirm." };
+    }
+    if (!Number.isInteger(minBallots) || !Number.isInteger(maxBallots) || minBallots < 1 || maxBallots < minBallots) {
+      return { error: "Choose a whole ballot range, with a minimum of 1." };
+    }
+    if (maxBallots > 200) return { error: "Keep dummy turnout at 200 ballots or fewer so the pack is printable." };
+
+    const confirmed = await confirmAdminPassword(password);
+    if ("error" in confirmed) return { error: confirmed.error };
+
+    const { data: election } = await confirmed.supabase.from("elections").select("id, state").eq("id", electionId).maybeSingle();
+    if (!election) return { error: "Election not found." };
+
+    const { data: posts } = await confirmed.supabase
+      .from("posts")
+      .select("id, name, votes_polled")
+      .eq("election_id", electionId);
+    const postIds = (posts ?? []).map((post) => post.id);
+    const { data: candidates } = postIds.length
+      ? await confirmed.supabase.from("candidates").select("id, post_id").in("post_id", postIds)
+      : { data: [] as Array<{ id: string; post_id: string }> };
+    const readyPostIds = [...new Set((candidates ?? []).map((candidate) => candidate.post_id))];
+    if (readyPostIds.length === 0) return { error: "Add candidates to at least one post first." };
+
+    const { data: rounds } = postIds.length
+      ? await confirmed.supabase.from("count_rounds").select("id").in("post_id", postIds).limit(1)
+      : { data: [] };
+    if ((rounds ?? []).length > 0) {
+      return { error: "Reset counts before assigning a new dummy turnout. Existing rounds would no longer match the ballots." };
+    }
+
+    const span = maxBallots - minBallots + 1;
+    const turnout = minBallots + Math.floor(Math.random() * span);
+
+    const { error: postError } = await confirmed.supabase
+      .from("posts")
+      .update({ votes_polled: turnout })
+      .in("id", readyPostIds);
+    if (postError) return { error: postError.message };
+
+    const { error: electionError } = await confirmed.supabase
+      .from("elections")
+      .update({ total_votes_polled: turnout })
+      .eq("id", electionId);
+    if (electionError) return { error: electionError.message };
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/dummy-ballots");
+    revalidatePath("/staff");
+    revalidatePath("/results");
+    return { ok: true, turnout, posts: readyPostIds.length };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not set dummy votes polled." };
+  }
+}
+
 export async function resetElectionCounts(electionId: string, password: string) {
   try {
     if (typeof password !== "string" || !password.trim()) {

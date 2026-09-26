@@ -10,6 +10,7 @@ import { cn, roleHome, roleLabel } from "@/lib/utils";
 const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
   admin: [
     { href: "/admin", label: "Dashboard" },
+    { href: "/admin/dummy-ballots", label: "Dummy ballots" },
     { href: "/admin/report", label: "Result report" },
     { href: "/results", label: "Live results" },
   ],
@@ -53,6 +54,7 @@ export function AppHeader({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={!(item.href.startsWith("/admin/") || item.href.endsWith("/report"))}
                 aria-current={current ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 transition",

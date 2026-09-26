@@ -3,19 +3,19 @@
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 
-export function PrintReportButton({ title = "GECI-College-Union-Result-Declaration" }: { title?: string }) {
+export function PrintDummyBallotsButton() {
   return (
     <Button
       size="lg"
       onClick={() => {
         const previous = document.title;
-        document.title = title;
+        document.title = "GECI-Dummy-Ballots";
         window.print();
         document.title = previous;
       }}
     >
       <Printer />
-      Print / Save as PDF
+      Print dummy ballots
     </Button>
   );
 }

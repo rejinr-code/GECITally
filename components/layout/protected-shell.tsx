@@ -18,7 +18,7 @@ export function ProtectedShell({
 }) {
   const pathname = usePathname();
   const countingDesk = pathname.startsWith("/staff/") && pathname !== "/staff";
-  const reportPage = pathname.endsWith("/report");
+  const printPage = pathname.endsWith("/report") || pathname.startsWith("/admin/dummy-ballots");
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -28,13 +28,13 @@ export function ProtectedShell({
       <div
         className={cn(
           "mx-auto w-full flex-1 px-4",
-          reportPage ? "max-w-[230mm] py-6 print:max-w-none print:px-0 print:py-0" : "max-w-6xl",
-          !reportPage && (countingDesk ? "py-4" : "py-8"),
+          printPage ? "max-w-[230mm] py-6 print:max-w-none print:px-0 print:py-0" : "max-w-6xl",
+          !printPage && (countingDesk ? "py-4" : "py-8"),
         )}
       >
         {children}
       </div>
-      {countingDesk || reportPage ? null : (
+      {countingDesk || printPage ? null : (
         <div className="print:hidden">
           <SiteFooter />
         </div>

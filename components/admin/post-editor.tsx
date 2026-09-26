@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
 import { formatNumber, initials, postSerial } from "@/lib/utils";
+import { DummyBallotTools } from "@/components/admin/dummy-ballot-tools";
 import { academicYear, candidateClassLabel, DEPARTMENTS, YEARS, yearLabel } from "@/lib/candidate-class";
 
 type PostWithCandidates = Post & { candidates: Candidate[] };
@@ -38,6 +39,8 @@ export function PostEditor({
 
   return (
     <div className="space-y-6">
+      <DummyBallotTools electionId={electionId} countingStarted={countingStarted} />
+
       <Card className="border-2 border-emerald-600 bg-gradient-to-br from-emerald-50 via-white to-amber-50 shadow-[0_18px_40px_-24px_rgba(4,120,87,0.85)] ring-4 ring-emerald-100">
         <CardHeader>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
