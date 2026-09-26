@@ -1,21 +1,14 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { cache } from "react";
+import { createClient, getAuthProfile } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { canViewResults, roleHome } from "@/lib/utils";
 
-export async function requireRole(allowed: UserRole | UserRole[]) {
+export const requireRole = cache(async (allowed: UserRole | UserRole[]) => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getAuthProfile();
 
   if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
 
   const role = profile?.role as UserRole | undefined;
   const allowedRoles = Array.isArray(allowed) ? allowed : [allowed];
@@ -24,21 +17,13 @@ export async function requireRole(allowed: UserRole | UserRole[]) {
   }
 
   return { supabase, user, role };
-}
+});
 
 export async function requireResultsAccess() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getAuthProfile();
 
   if (!user) redirect("/results/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
 
   const role = profile?.role as UserRole | undefined;
   if (!canViewResults(role)) {

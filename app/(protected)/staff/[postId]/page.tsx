@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/require-role";
 import { CountForm } from "@/components/counting/count-form";
 import { RoundCard } from "@/components/counting/round-card";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Candidate, CountEntry, CountRound } from "@/lib/types";
 import { countedBallotsFromRounds, liveDisplaySettings } from "@/lib/utils";
 
@@ -171,40 +172,38 @@ export default async function StaffPostPage({
   params: Promise<{ postId: string }>;
 }) {
   const { postId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await requireRole("staff");
+  const admin = createAdminClient();
 
   const [{ data: assignment }, { data: post }] = await Promise.all([
-    supabase
+    admin
       .from("staff_assignments")
       .select("id")
-      .eq("staff_id", user?.id ?? "")
+      .eq("staff_id", user.id)
       .eq("post_id", postId)
       .maybeSingle(),
-    supabase.from("posts").select("*").eq("id", postId).maybeSingle(),
+    admin.from("posts").select("*").eq("id", postId).maybeSingle(),
   ]);
 
   if (!assignment || !post) notFound();
 
   const [{ data: election }, { data: candidates }, { data: rounds }, { data: postRounds }] = await Promise.all([
-    supabase.from("elections").select("*").eq("id", post.election_id).maybeSingle(),
-    supabase.from("candidates").select("*").eq("post_id", postId).order("display_order"),
-    supabase
+    admin.from("elections").select("*").eq("id", post.election_id).maybeSingle(),
+    admin.from("candidates").select("*").eq("post_id", postId).order("display_order"),
+    admin
       .from("count_rounds")
       .select("*")
       .eq("post_id", postId)
-      .eq("staff_id", user?.id ?? "")
+      .eq("staff_id", user.id)
       .order("round_number", { ascending: false }),
-    supabase.from("count_rounds").select("*").eq("post_id", postId),
+    admin.from("count_rounds").select("*").eq("post_id", postId),
   ]);
 
   const myRoundIds = (rounds ?? []).map((round) => round.id);
   const postRoundIds = (postRounds ?? []).map((round) => round.id);
   const entryRoundIds = [...new Set([...myRoundIds, ...postRoundIds])];
   const { data: entries } = entryRoundIds.length
-    ? await supabase.from("count_entries").select("*").in("round_id", entryRoundIds)
+    ? await admin.from("count_entries").select("*").in("round_id", entryRoundIds)
     : { data: [] };
 
   const pending = (rounds ?? []).find((round) => round.status === "pending_verification") ?? null;

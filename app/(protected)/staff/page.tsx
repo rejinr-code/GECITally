@@ -1,53 +1,46 @@
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/require-role";
 import { StaffPostLink } from "@/components/counting/staff-post-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { countedBallotsFromRounds, liveDisplaySettings, percent } from "@/lib/utils";
 
 type AssignedPost = { id: string; name: string; seats: number; votes_polled: number };
+type RoundRow = { id: string; post_id: string; status: string; invalid_votes?: number | null };
+type EntryRow = { round_id: string; votes: number };
 
 export default async function StaffHomePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await requireRole("staff");
+  const admin = createAdminClient();
 
-  const { data: election } = await supabase
-    .from("elections")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const { data: assignments } = await supabase
-    .from("staff_assignments")
-    .select("post_id")
-    .eq("staff_id", user?.id ?? "");
+  const [{ data: election }, { data: assignments }] = await Promise.all([
+    admin.from("elections").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("staff_assignments").select("post_id").eq("staff_id", user.id),
+  ]);
 
   const postIds = (assignments ?? []).map((row) => row.post_id);
-  const { data: posts } = postIds.length
-    ? await supabase.from("posts").select("id, name, seats, votes_polled").in("id", postIds)
-    : { data: [] as AssignedPost[] };
+  const [{ data: posts }, { data: myRounds }, { data: postRounds }] = postIds.length
+    ? await Promise.all([
+        admin.from("posts").select("id, name, seats, votes_polled").in("id", postIds),
+        admin
+          .from("count_rounds")
+          .select("id, post_id, status, invalid_votes")
+          .in("post_id", postIds)
+          .eq("staff_id", user.id),
+        admin.from("count_rounds").select("id, post_id, status, invalid_votes").in("post_id", postIds),
+      ])
+    : [
+        { data: [] as AssignedPost[] },
+        { data: [] as RoundRow[] },
+        { data: [] as RoundRow[] },
+      ];
 
   const requireSupervisor = liveDisplaySettings(election).counting_requires_supervisor;
-
-  const { data: myRounds } = postIds.length
-    ? await supabase
-        .from("count_rounds")
-        .select("*")
-        .in("post_id", postIds)
-        .eq("staff_id", user?.id ?? "")
-    : { data: [] };
-
-  const { data: postRounds } = postIds.length
-    ? await supabase.from("count_rounds").select("*").in("post_id", postIds)
-    : { data: [] };
-
   const roundIds = [...new Set([...(myRounds ?? []), ...(postRounds ?? [])].map((round) => round.id))];
   const { data: entries } = roundIds.length
-    ? await supabase.from("count_entries").select("round_id, votes").in("round_id", roundIds)
-    : { data: [] as Array<{ round_id: string; votes: number }> };
+    ? await admin.from("count_entries").select("round_id, votes").in("round_id", roundIds)
+    : { data: [] as EntryRow[] };
 
   return (
     <div className="space-y-6">

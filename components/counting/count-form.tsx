@@ -168,16 +168,15 @@ export function CountForm({
   const pendingMarks = pendingTotalOf(pendingAdds);
   const committedTotal = marksToBallots(committedMarks, marksPerBallot);
   const pendingTotal = marksToBallots(pendingMarks, marksPerBallot);
-  const total = committedTotal + pendingTotal;
   const fillingBallot = multiSeat && draft.some(Boolean);
   const currentSlot = multiSeat ? draft.findIndex((slot) => slot == null) : 0;
   const activeSlot = multiSeat ? Math.max(currentSlot, 0) : 0;
   const theme = slotTheme(activeSlot);
   const waitingOnSupervisor = requireSupervisor && Boolean(pendingRound);
   const blocked = waitingOnSupervisor || !countingOpen || postComplete;
-  const canCount = !blocked && !isSubmitting && (fillingBallot || total < roundCap);
+  const canCount = !blocked && !isSubmitting && (fillingBallot || committedTotal < roundCap);
   const canConfirmQueued = !blocked && !isSubmitting && pendingTotal > 0 && !fillingBallot;
-  const roundFull = roundCap > 0 && total >= roundCap;
+  const roundFull = roundCap > 0 && committedTotal + pendingTotal >= roundCap;
   const canSubmit =
     !blocked &&
     !isSubmitting &&
@@ -191,12 +190,14 @@ export function CountForm({
     setError(null);
 
     if (!multiSeat) {
-      setPendingAdds((current) => ({
-        ...current,
-        [candidateId]: (current[candidateId] ?? 0) + 1,
-      }));
+      setPendingAdds({ [candidateId]: 1 });
       setLastId(candidateId);
       setLastSlot(0);
+      return;
+    }
+
+    if (pendingTotal > 0 && !fillingBallot) {
+      setError("Confirm this ballot first.");
       return;
     }
 
@@ -216,16 +217,16 @@ export function CountForm({
     setLastId(candidateId);
     setLastSlot(slot);
     if (next.every(Boolean)) {
-      setPendingAdds((current) => {
-        const queued = { ...current };
+      setPendingAdds(() => {
+        const queued: Record<string, number> = {};
         for (const id of next) {
           if (!id) continue;
           queued[id] = (queued[id] ?? 0) + 1;
         }
         return queued;
       });
-      setPendingCandidateSlots((current) => {
-        const queued = { ...current };
+      setPendingCandidateSlots(() => {
+        const queued = emptySlotMap(candidates, marksPerBallot);
         next.forEach((id, slot) => {
           if (!id || id.startsWith("__invalid")) return;
           const marks = [...(queued[id] ?? Array.from({ length: marksPerBallot }, () => 0))];
@@ -551,7 +552,7 @@ export function CountForm({
                   compact ? "text-2xl" : "text-3xl",
                 )}
               >
-                {formatNumber(total)}
+                {formatNumber(committedTotal)}
                 <span className="text-lg font-semibold text-muted-foreground">
                   {roundCap > 0 ? ` / ${formatNumber(roundCap)}` : ""}
                 </span>
@@ -562,7 +563,7 @@ export function CountForm({
             <p className="mt-2 text-sm text-muted-foreground">
               {multiSeat
                 ? `Each ballot names ${marksPerBallot} candidates. Vote a candidate for the ${ordinalMark(0)} mark, then another for the ${ordinalMark(1)}${marksPerBallot > 2 ? ", and so on" : ""}. If a mark is spoilt, use that mark's Invalid row instead. The same candidate cannot be marked twice.`
-                : "Use Vote on a row, then Confirm to mark the count so far. Do not type numbers. Invalid ballots count toward the round, not toward a candidate"}
+                : "Use Vote on a row, then Confirm that one vote. Do not type numbers. Invalid ballots count toward the round, not toward a candidate"}
               {isLastRound ? `. This last round has ${formatNumber(roundCap)} remaining.` : multiSeat ? "" : "."}
             </p>
           ) : isLastRound ? (
@@ -657,14 +658,18 @@ export function CountForm({
               <span className="text-right">Add</span>
             </div>
             {tableRows.map((row) => {
-              const shown = row.count + row.pending;
+              const shown = row.count;
               const isLast = row.id === lastId;
               const invalidActive = row.invalid && isLast;
               const alreadyOnBallot = multiSeat && !row.invalid && draft.includes(row.id);
               const wrongInvalidSlot = Boolean(
                 multiSeat && row.invalid && typeof row.slot === "number" && row.slot !== currentSlot,
               );
-              const voteDisabled = !canCount || alreadyOnBallot || wrongInvalidSlot;
+              const voteDisabled =
+                !canCount ||
+                alreadyOnBallot ||
+                wrongInvalidSlot ||
+                (multiSeat && pendingTotal > 0 && !fillingBallot);
               const lastTheme = lastSlot != null ? slotTheme(lastSlot) : null;
               return (
                 <div
@@ -720,7 +725,7 @@ export function CountForm({
                       </p>
                     ) : row.pending > 0 ? (
                       <p className={cn("font-semibold text-amber-700", compact ? "text-[10px]" : "mt-0.5 text-[11px]")}>
-                        +{formatNumber(row.pending)} queued
+                        +1 to confirm
                       </p>
                     ) : null}
                   </div>
@@ -765,7 +770,7 @@ export function CountForm({
                 className="text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
                 onClick={clearQueued}
               >
-                Clear queued
+                Clear vote
               </button>
             ) : null}
           </div>
@@ -791,7 +796,9 @@ export function CountForm({
             </p>
             {pendingTotal > 0 ? (
               <p className="text-xs font-medium text-amber-800">
-                {formatNumber(pendingTotal)} ballot{pendingTotal === 1 ? "" : "s"} not confirmed yet
+                {multiSeat
+                  ? "1 ballot not confirmed yet"
+                  : "1 vote not confirmed yet"}
               </p>
             ) : null}
             {invalidCount +
