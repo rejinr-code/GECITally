@@ -196,6 +196,7 @@ export type TickerPerson = {
   panel: string;
   color: string | null;
   votes: number;
+  margin?: number | null;
   status: "WON" | "TIE" | "LEAD" | "TRAIL";
 };
 
@@ -205,13 +206,18 @@ export type TickerItem = {
   people: TickerPerson[];
 };
 
-function tickerPerson(candidate: LiveCandidate, status: TickerPerson["status"]): TickerPerson {
+function tickerPerson(
+  candidate: LiveCandidate,
+  status: TickerPerson["status"],
+  extra?: { margin?: number | null },
+): TickerPerson {
   return {
     name: candidate.name,
     photo_url: candidate.photo_url,
     panel: panelKey(candidate.panel_name),
     color: candidate.panel_color ?? null,
     votes: candidate.votes,
+    margin: extra?.margin,
     status,
   };
 }
@@ -226,9 +232,15 @@ export function raceTickerItems(posts: LivePost[]): TickerItem[] {
     if (candidates.length === 0) continue;
 
     if (race.declared) {
+      const taken = new Set([...race.elected, ...race.tied].map((candidate) => candidate.id));
+      const runner = race.ranked.find((candidate) => !taken.has(candidate.id));
       const people = [
-        ...race.elected.map((candidate) => tickerPerson(candidate, "WON")),
-        ...race.tied.map((candidate) => tickerPerson(candidate, "TIE")),
+        ...race.elected.map((candidate) => {
+          const margin =
+            !runner || runner.votes <= 0 ? null : candidate.votes - runner.votes;
+          return tickerPerson(candidate, "WON", { margin });
+        }),
+        ...race.tied.map((candidate) => tickerPerson(candidate, "TIE", { margin: 0 })),
       ];
       if (!people.length) continue;
       finals.push({ post: shortPostName(post.name), label: race.label, people });

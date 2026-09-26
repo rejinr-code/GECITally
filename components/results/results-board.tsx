@@ -298,7 +298,7 @@ const TICKER_SLIDE_MS = 900;
 function AnnouncedTicker({ items }: { items: TickerItem[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const itemsKey = items
-    .map((item) => `${item.post}:${item.label}:${item.people.map((person) => `${person.name}:${person.status}:${person.votes}`).join(",")}`)
+    .map((item) => `${item.post}:${item.label}:${item.people.map((person) => `${person.name}:${person.status}:${person.votes}:${person.margin ?? ""}`).join(",")}`)
     .join("|");
   const strip = items.length > 1 ? [...items, ...items] : items;
 
@@ -360,6 +360,15 @@ function AnnouncedTicker({ items }: { items: TickerItem[] }) {
       </div>
     </div>
   );
+}
+
+function tickerPersonStat(person: TickerItem["people"][number], declared: boolean) {
+  if (!declared || (person.status !== "WON" && person.status !== "TIE")) {
+    return `${person.panel} · ${person.votes}`;
+  }
+  if (person.status === "TIE" || person.margin === 0) return `${person.panel} · Tie`;
+  if (person.margin == null) return `${person.panel} · Unanimous`;
+  return `${person.panel} · +${formatNumber(person.margin)}`;
 }
 
 function TickerCard({ item }: { item: TickerItem }) {
@@ -442,7 +451,7 @@ function TickerCard({ item }: { item: TickerItem }) {
                   {first}
                 </p>
                 <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                  {person.panel} · {person.votes}
+                  {tickerPersonStat(person, declared)}
                 </p>
               </div>
             </div>
