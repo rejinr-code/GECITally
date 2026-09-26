@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRealtimeResults } from "@/hooks/use-realtime-results";
 import { PostSection } from "@/components/results/post-section";
-import { LatestResult, useLatestDeclaredPost } from "@/components/results/latest-result";
+import { LatestResult, useLatestCountUpdate } from "@/components/results/latest-result";
 import { LiveCounter } from "@/components/results/live-counter";
 import { WINNER_BURST_MS } from "@/components/results/winner-burst";
 import { GeciMark } from "@/components/branding/geci-mark";
@@ -118,7 +118,7 @@ export function ResultsBoard({
   const postProgress = percent(seatRace.declaredPosts, seatRace.postCount);
   const panels = useMemo(() => summarizePanels(posts), [posts]);
   const ticker = useMemo(() => raceTickerItems(posts), [posts]);
-  const latestDeclared = useLatestDeclaredPost(posts);
+  const latestUpdate = useLatestCountUpdate(posts);
   const display = liveDisplaySettings(election);
   const rotateMs = display.results_rotate_seconds * 1000;
   const currentDeclared = Boolean(
@@ -262,7 +262,7 @@ export function ResultsBoard({
             <p className="m-auto text-slate-500">No posts configured yet.</p>
           )}
         </main>
-        <LatestResult post={latestDeclared} />
+        <LatestResult post={latestUpdate} />
       </div>
 
       <footer className="relative z-10 flex h-20 shrink-0 items-stretch gap-0 overflow-hidden border-t border-slate-200 bg-white">
@@ -293,7 +293,9 @@ const TICKER_SLIDE_MS = 900;
 
 function AnnouncedTicker({ items }: { items: TickerItem[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const itemsKey = items.map((item) => `${item.post}:${item.label}`).join("|");
+  const itemsKey = items
+    .map((item) => `${item.post}:${item.label}:${item.people.map((person) => `${person.name}:${person.status}:${person.votes}`).join(",")}`)
+    .join("|");
   const strip = items.length > 1 ? [...items, ...items] : items;
 
   useEffect(() => {
@@ -340,7 +342,7 @@ function AnnouncedTicker({ items }: { items: TickerItem[] }) {
   if (!items.length) {
     return (
       <p className="flex h-full items-center px-4 text-sm font-bold uppercase tracking-wide text-slate-500">
-        Awaiting the first declared result
+        Awaiting the first count
       </p>
     );
   }
@@ -357,9 +359,9 @@ function AnnouncedTicker({ items }: { items: TickerItem[] }) {
 }
 
 function TickerCard({ item }: { item: TickerItem }) {
-
   const mixed = item.people.some((person) => person.status === "WON") && item.people.some((person) => person.status === "TIE");
-  const verb = mixed ? "RESULT" : item.label === "WON" ? "WINS" : item.label === "TIE" ? "TIE" : "LEADING";
+  const verb =
+    mixed ? "RESULT" : item.label === "WON" ? "WINS" : item.label === "TIE" ? "TIE" : item.label === "LEAD" ? "LEADING" : "COUNTING";
 
   return (
     <article className="flex h-full items-stretch border-r border-slate-200 bg-white">
@@ -372,6 +374,16 @@ function TickerCard({ item }: { item: TickerItem }) {
           const theme = panelTheme(person.panel, person.color);
           const first = person.name.split(" ")[0] ?? person.name;
           const won = person.status === "WON";
+          const lead = person.status === "LEAD";
+          const trail = person.status === "TRAIL";
+          const statusLabel =
+            person.status === "WON"
+              ? "WINNER"
+              : person.status === "TIE"
+                ? "TIED"
+                : person.status === "LEAD"
+                  ? "LEADING"
+                  : "TRAILING";
           return (
             <div key={person.name} className="flex items-center gap-2">
               {person.photo_url ? (
@@ -381,14 +393,14 @@ function TickerCard({ item }: { item: TickerItem }) {
                   alt=""
                   className={cn(
                     "size-14 shrink-0 rounded-full object-cover",
-                    won ? "ring-2 ring-slate-900" : "ring-1 ring-slate-300",
+                    won || lead ? "ring-2 ring-slate-900" : "ring-1 ring-slate-300",
                   )}
                 />
               ) : (
                 <div
                   className={cn(
                     "flex size-14 shrink-0 items-center justify-center rounded-full text-xs font-black",
-                    won ? "ring-2 ring-slate-900" : "ring-1 ring-slate-300",
+                    won || lead ? "ring-2 ring-slate-900" : "ring-1 ring-slate-300",
                   )}
                   style={{ background: theme.bg, color: theme.fg }}
                 >
@@ -399,13 +411,17 @@ function TickerCard({ item }: { item: TickerItem }) {
                 <p
                   className={cn(
                     "text-[9px] font-black tracking-[0.22em]",
-                    won ? "text-red-600" : "text-slate-400",
+                    won ? "text-red-600" : lead ? "text-slate-700" : "text-slate-400",
                   )}
                 >
-                  {person.status === "WON" ? "WINNER" : person.status === "TIE" ? "TIED" : "LEADING"}
+                  {statusLabel}
                 </p>
-                <p className="truncate text-lg font-black leading-none tracking-tight text-slate-950">{first}</p>
-                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{person.panel}</p>
+                <p className={cn("truncate text-lg font-black leading-none tracking-tight", trail ? "text-slate-500" : "text-slate-950")}>
+                  {first}
+                </p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  {person.panel} · {person.votes}
+                </p>
               </div>
             </div>
           );

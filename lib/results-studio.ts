@@ -134,20 +134,29 @@ export function postRaceStatus(post: LivePost) {
   );
   const { elected, tied } = resolveSeats(ranked, post.seats, (candidate) => candidate.votes);
   const declared = postIsDeclared(post);
-  const leaders = declared ? [...elected, ...tied] : [...elected, ...tied];
-  const headline = leaders[0] ?? ranked[0] ?? null;
   const hasVotes = (ranked[0]?.votes ?? 0) > 0;
 
   if (!hasVotes) {
-    return { label: "COUNTING" as const, leaders: [] as LiveCandidate[], ranked, elected, tied, declared };
+    return {
+      label: "COUNTING" as const,
+      leaders: [] as LiveCandidate[],
+      trailers: [] as LiveCandidate[],
+      ranked,
+      elected,
+      tied,
+      declared,
+      hasVotes,
+    };
   }
+  const leaderIds = new Set([...elected, ...tied].map((candidate) => candidate.id));
+  const trailers = ranked.filter((candidate) => !leaderIds.has(candidate.id) && candidate.votes > 0);
   if (declared && tied.length && elected.length === 0) {
-    return { label: "TIE" as const, leaders: tied, ranked, elected, tied, declared };
+    return { label: "TIE" as const, leaders: tied, trailers, ranked, elected, tied, declared, hasVotes };
   }
   if (declared) {
-    return { label: "WON" as const, leaders, ranked, elected, tied, declared };
+    return { label: "WON" as const, leaders: [...elected, ...tied], trailers, ranked, elected, tied, declared, hasVotes };
   }
-  return { label: "LEAD" as const, leaders, ranked, elected, tied, declared };
+  return { label: "LEAD" as const, leaders: [...elected, ...tied], trailers, ranked, elected, tied, declared, hasVotes };
 }
 
 export function summarizeSeatRace(posts: LivePost[]) {
@@ -186,7 +195,8 @@ export type TickerPerson = {
   photo_url: string | null;
   panel: string;
   color: string | null;
-  status: "WON" | "TIE" | "LEAD";
+  votes: number;
+  status: "WON" | "TIE" | "LEAD" | "TRAIL";
 };
 
 export type TickerItem = {
@@ -195,26 +205,32 @@ export type TickerItem = {
   people: TickerPerson[];
 };
 
+function tickerPerson(candidate: LiveCandidate, status: TickerPerson["status"]): TickerPerson {
+  return {
+    name: candidate.name,
+    photo_url: candidate.photo_url,
+    panel: panelKey(candidate.panel_name),
+    color: candidate.panel_color ?? null,
+    votes: candidate.votes,
+    status,
+  };
+}
+
 export function raceTickerItems(posts: LivePost[]): TickerItem[] {
   return posts.flatMap((post) => {
     const race = postRaceStatus(post);
-    if (!race.declared) return [];
-    const people: TickerPerson[] = [
-      ...race.elected.map((candidate) => ({
-        name: candidate.name,
-        photo_url: candidate.photo_url,
-        panel: panelKey(candidate.panel_name),
-        color: candidate.panel_color ?? null,
-        status: "WON" as const,
-      })),
-      ...race.tied.map((candidate) => ({
-        name: candidate.name,
-        photo_url: candidate.photo_url,
-        panel: panelKey(candidate.panel_name),
-        color: candidate.panel_color ?? null,
-        status: "TIE" as const,
-      })),
-    ];
+    if (!race.hasVotes) return [];
+    const people: TickerPerson[] = race.declared
+      ? [
+          ...race.elected.map((candidate) => tickerPerson(candidate, "WON")),
+          ...race.tied.map((candidate) => tickerPerson(candidate, "TIE")),
+        ]
+      : [
+          ...race.elected.map((candidate) => tickerPerson(candidate, "LEAD")),
+          ...race.tied.map((candidate) => tickerPerson(candidate, "TIE")),
+          ...race.trailers.map((candidate) => tickerPerson(candidate, "TRAIL")),
+        ];
+    if (!people.length) return [];
     return [
       {
         post: shortPostName(post.name),
