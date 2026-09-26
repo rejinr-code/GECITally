@@ -32,7 +32,7 @@ export function CandidateCard({
   const classLabel = candidateClassLabel(candidate.branch, candidate.year, candidate.semester);
   const width = maxVotes > 0 ? (candidate.votes / maxVotes) * 100 : 0;
   const panel = panelKey(candidate.panel_name);
-  const theme = panelTheme(panel);
+  const theme = panelTheme(panel, candidate.panel_color);
   const status = elected ? "WON" : tied ? "TIE" : leading ? "LEAD" : "";
 
   return (

@@ -3,6 +3,7 @@ import { postIsDeclared, rankByVotesThenName, resolveSeats, shortPostName } from
 
 export type PanelStanding = {
   name: string;
+  color: string | null;
   votes: number;
   won: number;
   lead: number;
@@ -24,19 +25,59 @@ const FALLBACK_THEMES: PanelTheme[] = [
   { bg: "#1d4ed8", fg: "#eff6ff", bar: "#60a5fa", ring: "#93c5fd" },
 ];
 
+const INDEPENDENT_THEME: PanelTheme = {
+  bg: "#3f3f46",
+  fg: "#f8fafc",
+  bar: "#a1a1aa",
+  ring: "#d4d4d8",
+};
+
+export function isIndependentPanel(name: string | null | undefined) {
+  const key = panelKey(name).toUpperCase();
+  return key.includes("INDEPENDENT") || key === "IND";
+}
+
+export function parsePanelColor(value: string | null | undefined) {
+  const hex = value?.trim() ?? "";
+  return /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex.toLowerCase() : null;
+}
+
+function mixHex(hex: string, toward: number, amount: number) {
+  const mix = (part: string) => {
+    const value = Number.parseInt(part, 16);
+    return Math.round(value + (toward - value) * amount)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${mix(hex.slice(1, 3))}${mix(hex.slice(3, 5))}${mix(hex.slice(5, 7))}`;
+}
+
+export function themeFromColor(hex: string): PanelTheme {
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return {
+    bg: hex,
+    fg: luminance > 0.62 ? "#111827" : "#fff7ed",
+    bar: mixHex(hex, 255, 0.38),
+    ring: mixHex(hex, 255, 0.55),
+  };
+}
+
 export function panelKey(name: string | null | undefined) {
   const trimmed = name?.trim();
   return trimmed ? trimmed : "Independent";
 }
 
-export function panelTheme(name: string | null | undefined): PanelTheme {
+export function panelTheme(name: string | null | undefined, color?: string | null): PanelTheme {
+  if (isIndependentPanel(name)) return INDEPENDENT_THEME;
+  const parsed = parsePanelColor(color);
+  if (parsed) return themeFromColor(parsed);
   const key = panelKey(name).toUpperCase();
   if (key.includes("SFI")) return { bg: "#be123c", fg: "#fff1f2", bar: "#fb7185", ring: "#fda4af" };
   if (key.includes("KSU")) return { bg: "#ca8a04", fg: "#111827", bar: "#facc15", ring: "#fde047" };
   if (key.includes("ABVP")) return { bg: "#c2410c", fg: "#fff7ed", bar: "#fb923c", ring: "#fdba74" };
-  if (key.includes("INDEPENDENT") || key === "IND") {
-    return { bg: "#0369a1", fg: "#f0f9ff", bar: "#38bdf8", ring: "#7dd3fc" };
-  }
   let hash = 0;
   for (const char of key) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return FALLBACK_THEMES[hash % FALLBACK_THEMES.length];
@@ -48,7 +89,7 @@ export function summarizePanels(posts: LivePost[]): PanelStanding[] {
     const key = panelKey(name);
     const current = map.get(key);
     if (current) return current;
-    const created = { name: key, votes: 0, won: 0, lead: 0, tie: 0, tally: 0 };
+    const created = { name: key, color: null as string | null, votes: 0, won: 0, lead: 0, tie: 0, tally: 0 };
     map.set(key, created);
     return created;
   }
@@ -62,7 +103,9 @@ export function summarizePanels(posts: LivePost[]): PanelStanding[] {
     const { elected, tied } = resolveSeats(ranked, post.seats, (candidate) => candidate.votes);
     const declared = postIsDeclared(post);
     for (const candidate of ranked) {
-      bucket(candidate.panel_name).votes += candidate.votes;
+      const standing = bucket(candidate.panel_name);
+      standing.votes += candidate.votes;
+      if (!standing.color && candidate.panel_color) standing.color = candidate.panel_color;
     }
     if (declared) {
       for (const candidate of elected) bucket(candidate.panel_name).won += 1;
@@ -75,7 +118,12 @@ export function summarizePanels(posts: LivePost[]): PanelStanding[] {
 
   return [...map.values()]
     .map((panel) => ({ ...panel, tally: panel.won + panel.lead }))
-    .sort((a, b) => b.tally - a.tally || b.won - a.won || b.votes - a.votes || a.name.localeCompare(b.name, "en"));
+    .sort((a, b) => {
+      const aIndependent = isIndependentPanel(a.name);
+      const bIndependent = isIndependentPanel(b.name);
+      if (aIndependent !== bIndependent) return aIndependent ? 1 : -1;
+      return b.tally - a.tally || b.won - a.won || b.votes - a.votes || a.name.localeCompare(b.name, "en");
+    });
 }
 
 export function postRaceStatus(post: LivePost) {
@@ -137,6 +185,7 @@ export type TickerPerson = {
   name: string;
   photo_url: string | null;
   panel: string;
+  color: string | null;
   status: "WON" | "TIE" | "LEAD";
 };
 
@@ -155,12 +204,14 @@ export function raceTickerItems(posts: LivePost[]): TickerItem[] {
         name: candidate.name,
         photo_url: candidate.photo_url,
         panel: panelKey(candidate.panel_name),
+        color: candidate.panel_color ?? null,
         status: "WON" as const,
       })),
       ...race.tied.map((candidate) => ({
         name: candidate.name,
         photo_url: candidate.photo_url,
         panel: panelKey(candidate.panel_name),
+        color: candidate.panel_color ?? null,
         status: "TIE" as const,
       })),
     ];

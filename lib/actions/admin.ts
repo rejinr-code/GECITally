@@ -313,6 +313,14 @@ export async function deleteCandidate(candidateId: string) {
   }
 }
 
+function panelColorSchemaError(error: { message: string; code?: string }) {
+  const message = error.message.toLowerCase();
+  if (error.code === "PGRST204" || message.includes("color") || message.includes("schema cache")) {
+    return "Run supabase/migrations/0017_panel_color.sql in the Supabase SQL editor first.";
+  }
+  return error.message;
+}
+
 export async function savePanel(formData: FormData) {
   try {
     const { supabase } = await requireAdmin();
@@ -321,20 +329,22 @@ export async function savePanel(formData: FormData) {
       election_id: String(formData.get("election_id") ?? ""),
       name: String(formData.get("name") ?? "").trim(),
       display_order: Number(formData.get("display_order") ?? 0),
+      color: String(formData.get("color") ?? "").trim().toLowerCase(),
     };
     if (!payload.election_id) return { error: "Save election metadata first." };
     if (!payload.name) return { error: "Panel name is required." };
+    if (!/^#[0-9a-f]{6}$/.test(payload.color)) return { error: "Choose a panel colour." };
 
     if (id) {
       const { error } = await supabase.from("panels").update(payload).eq("id", id);
-      if (error) return { error: error.message };
+      if (error) return { error: panelColorSchemaError(error) };
     } else {
       const { error } = await supabase.from("panels").insert(payload);
       if (error) {
         if (error.message.includes("panels_election_id_name_key") || error.code === "23505") {
           return { error: "A panel with that name already exists." };
         }
-        return { error: error.message };
+        return { error: panelColorSchemaError(error) };
       }
     }
     revalidatePath("/admin");

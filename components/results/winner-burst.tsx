@@ -150,7 +150,7 @@ function winnerDetail(winner: LiveCandidate) {
 }
 
 function WinnerFace({ winner, compact = false, tied = false }: { winner: LiveCandidate; compact?: boolean; tied?: boolean }) {
-  const theme = panelTheme(winner.panel_name);
+  const theme = panelTheme(winner.panel_name, winner.panel_color);
   if (winner.photo_url) {
     return (
       // eslint-disable-next-line @next/next/no-img-element

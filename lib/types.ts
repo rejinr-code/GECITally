@@ -36,6 +36,7 @@ export type Panel = {
   election_id: string;
   name: string;
   display_order: number;
+  color?: string | null;
 };
 
 export type Candidate = {
@@ -85,6 +86,7 @@ export type LiveCandidate = {
   name: string;
   photo_url: string | null;
   panel_name: string | null;
+  panel_color?: string | null;
   branch: string | null;
   year: number | null;
   semester?: number | null;

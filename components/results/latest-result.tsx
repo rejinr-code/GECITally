@@ -93,7 +93,7 @@ function LatestHeader({ empty = false }: { empty?: boolean }) {
 }
 
 function DeclaredRow({ person, badge }: { person: LiveCandidate; badge: "WON" | "TIE" }) {
-  const theme = panelTheme(person.panel_name);
+  const theme = panelTheme(person.panel_name, person.panel_color);
   const detail = [panelKey(person.panel_name), candidateClassLabel(person.branch, person.year, person.semester)]
     .filter(Boolean)
     .join(" · ");

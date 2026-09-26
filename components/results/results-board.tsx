@@ -25,6 +25,7 @@ import {
   raceTickerItems,
   summarizePanels,
   summarizeSeatRace,
+  type PanelStanding,
   type TickerItem,
 } from "@/lib/results-studio";
 
@@ -240,30 +241,7 @@ export function ResultsBoard({
             {bigScreen ? "Exit hall" : "Hall view"}
           </Button>
         </div>
-        {panels.length > 0 ? (
-          <div className="flex gap-px bg-white">
-            {panels.map((panel) => {
-              const theme = panelTheme(panel.name);
-              return (
-                <div
-                  key={panel.name}
-                  className="min-w-0 flex-1 px-3 py-2"
-                  style={{ background: theme.bg, color: theme.fg }}
-                >
-                  <div className="flex items-end justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-[11px] font-black uppercase tracking-[0.18em]">{panel.name}</p>
-                      <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-wide opacity-90">
-                        {panel.won} won · {panel.lead} lead · {panel.tie} tie · {formatNumber(panel.votes)} votes
-                      </p>
-                    </div>
-                    <LiveCounter value={panel.tally} className="text-4xl font-black tabular-nums leading-none md:text-5xl" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
+        {panels.length > 0 ? <PanelStandingStrip panels={panels} /> : null}
       </header>
 
       <div className="relative z-10 flex min-h-0 flex-1 gap-2 p-2 md:p-3">
@@ -327,6 +305,7 @@ function AnnouncedTicker({ items }: { items: TickerItem[] }) {
     let cancelled = false;
 
     function goTo(next: number, animate: boolean) {
+      if (!track) return;
       const card = track.children[next] as HTMLElement | undefined;
       if (!card) return;
       track.style.transition = animate ? `transform ${TICKER_SLIDE_MS}ms ease-in-out` : "none";
@@ -390,7 +369,7 @@ function TickerCard({ item }: { item: TickerItem }) {
       </div>
       <div className="flex items-center gap-3 px-3">
         {item.people.map((person) => {
-          const theme = panelTheme(person.panel);
+          const theme = panelTheme(person.panel, person.color);
           const first = person.name.split(" ")[0] ?? person.name;
           const won = person.status === "WON";
           return (
@@ -445,5 +424,63 @@ function TickerCard({ item }: { item: TickerItem }) {
         </span>
       </div>
     </article>
+  );
+}
+
+function PanelStandingStrip({ panels }: { panels: PanelStanding[] }) {
+  return (
+    <div className="flex gap-px bg-white">
+      {panels.map((panel) => (
+        <PanelStandingCard key={panel.name} panel={panel} />
+      ))}
+    </div>
+  );
+}
+
+function PanelStandingCard({ panel }: { panel: PanelStanding }) {
+  const theme = panelTheme(panel.name, panel.color);
+  const darkText = theme.fg === "#111827";
+  const outcomes = [
+    { label: "Won", value: panel.won },
+    { label: "Lead", value: panel.lead },
+    { label: "Tie", value: panel.tie },
+  ];
+
+  return (
+    <div className="min-w-0 flex-1 px-3 py-2" style={{ background: theme.bg, color: theme.fg }}>
+      <p className="truncate text-[11px] font-black uppercase tracking-[0.18em]">{panel.name}</p>
+      <div className="mt-1 flex items-end gap-2 sm:gap-3">
+        <div className="w-[3.75rem] shrink-0 sm:w-16">
+          <LiveCounter value={panel.tally} className="block text-3xl font-black tabular-nums leading-none" />
+          <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.14em] opacity-70">seats</p>
+        </div>
+        <div className="grid min-w-0 flex-1 grid-cols-3">
+          {outcomes.map((stat) => (
+            <StandingStat key={stat.label} label={stat.label} value={stat.value} />
+          ))}
+        </div>
+        <div className={cn("mb-0.5 h-8 w-px shrink-0", darkText ? "bg-black/20" : "bg-white/25")} />
+        <StandingStat label="Votes" value={panel.votes} align="right" />
+      </div>
+    </div>
+  );
+}
+
+function StandingStat({
+  label,
+  value,
+  align = "center",
+}: {
+  label: string;
+  value: number;
+  align?: "center" | "right";
+}) {
+  return (
+    <div className={cn("min-w-0", align === "right" ? "w-12 shrink-0 text-right sm:w-14" : "text-center")}>
+      <p className={cn("text-lg font-black tabular-nums leading-none sm:text-xl", value === 0 && "opacity-40")}>
+        {formatNumber(value)}
+      </p>
+      <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.14em] opacity-70">{label}</p>
+    </div>
   );
 }

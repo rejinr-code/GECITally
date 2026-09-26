@@ -219,7 +219,7 @@ function useHallListScroll(resetKey: string, delayMs: number) {
     el.scrollTop = 0;
 
     function frame(now: number) {
-      if (cancelled) return;
+      if (cancelled || !el) return;
       const dt = last ? Math.min(48, now - last) : 16;
       last = now;
       const max = Math.max(0, el.scrollHeight - el.clientHeight);
@@ -272,7 +272,7 @@ function StudioStat({ label, value, tone }: { label: string; value: number; tone
 }
 
 function PortraitStrip({ candidate, badge }: { candidate: LiveCandidate; badge: "WON" | "LEAD" | "TIE" }) {
-  const theme = panelTheme(candidate.panel_name);
+  const theme = panelTheme(candidate.panel_name, candidate.panel_color);
   const classLabel = candidateClassLabel(candidate.branch, candidate.year, candidate.semester);
   return (
     <div className="flex items-center gap-3 bg-slate-50 px-3 py-2">
