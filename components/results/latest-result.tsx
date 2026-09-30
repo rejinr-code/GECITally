@@ -10,7 +10,9 @@ import type { LiveCandidate, LivePost } from "@/lib/types";
 import {
   cn,
   competitionRank,
+  formatNumber,
   initials,
+  liveCountedBallots,
   ordinalMark,
   percent,
   postIsDeclared,
@@ -126,6 +128,8 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
     );
   }
 
+  const countedBallots = liveCountedBallots(post);
+  const votesPolled = post.votes_polled ?? 0;
   const race = postRaceStatus(post);
   const ranked = rankByVotesThenName(
     post.candidates ?? [],
@@ -158,7 +162,7 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
 
   return (
     <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <LatestHeader />
+      <LatestHeader counted={countedBallots} polled={votesPolled} />
       <div className="relative flex min-h-0 flex-1 flex-col">
         <AnimatePresence>
           {phase === "post" ? (
@@ -196,7 +200,10 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
                 animate={{ opacity: [0, 0.9, 0.35, 0.9] }}
                 transition={{ duration: 2.4, delay: 0.4, repeat: Infinity, repeatType: "mirror" }}
               >
-                {post.seats} seat{post.seats > 1 ? "s" : ""} · result incoming
+                {post.seats} seat{post.seats > 1 ? "s" : ""}
+                {" · "}
+                {formatNumber(countedBallots)} counted
+                {votesPolled > 0 ? ` · ${formatNumber(votesPolled)} polled` : ""}
               </motion.p>
             </motion.div>
           ) : null}
@@ -208,6 +215,10 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
             <h2 className="mt-0.5 text-xl font-black uppercase leading-tight tracking-tight text-slate-950 sm:text-3xl">
               {post.name}
             </h2>
+            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {formatNumber(countedBallots)} counted
+              {votesPolled > 0 ? ` · ${formatNumber(votesPolled)} polled` : ""}
+            </p>
           </div>
           <AnimatePresence>
             {showRank ? (
@@ -298,11 +309,19 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
   );
 }
 
-function LatestHeader() {
+function LatestHeader({ counted, polled }: { counted?: number; polled?: number }) {
   return (
-    <div className="flex shrink-0 items-center gap-1.5 bg-red-600 px-4 py-2 text-white">
-      <span className="size-2 shrink-0 rounded-full bg-white" style={{ animation: "livePulse 1.4s ease-out infinite" }} />
-      <p className="text-[11px] font-black tracking-[0.28em]">LATEST UPDATE</p>
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 bg-red-600 px-4 py-2 text-white">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="size-2 shrink-0 rounded-full bg-white" style={{ animation: "livePulse 1.4s ease-out infinite" }} />
+        <p className="text-[11px] font-black tracking-[0.28em]">LATEST UPDATE</p>
+      </span>
+      {counted != null ? (
+        <p className="ml-auto text-[11px] font-black tabular-nums tracking-[0.14em]">
+          {formatNumber(counted)} COUNTED
+          {polled != null && polled > 0 ? ` · ${formatNumber(polled)} POLLED` : ""}
+        </p>
+      ) : null}
     </div>
   );
 }
