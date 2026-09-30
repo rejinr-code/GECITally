@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { LiveCounter } from "@/components/results/live-counter";
-import { WINNER_BURST_MS, WinnerBurst } from "@/components/results/winner-burst";
+import { WinnerBurst, winnerBurstMs } from "@/components/results/winner-burst";
 import { useHallListScroll } from "@/hooks/use-hall-list-scroll";
 import { candidateClassLabel } from "@/lib/candidate-class";
 import { panelKey, panelTheme, postRaceStatus } from "@/lib/results-studio";
@@ -26,8 +26,12 @@ const BARS_MS = 1600;
 export const LATEST_REVEAL_MS = POST_MS + PEOPLE_MS + BARS_MS;
 
 export function latestHoldMs(post: LivePost | null) {
-  if (!post || !postIsDeclared(post)) return LATEST_REVEAL_MS;
-  return LATEST_REVEAL_MS + WINNER_BURST_MS;
+  if (!post) return LATEST_REVEAL_MS;
+  const crowd = post.candidates?.length ?? 0;
+  const scrollExtra = crowd >= 3 ? 5200 : 0;
+  if (!postIsDeclared(post)) return LATEST_REVEAL_MS + scrollExtra;
+  const race = postRaceStatus(post);
+  return LATEST_REVEAL_MS + winnerBurstMs(race.elected.length + race.tied.length) + scrollExtra;
 }
 
 type Phase = "post" | "people" | "bars" | "rank";
@@ -105,11 +109,12 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
   const [phase, setPhase] = useState<Phase>("post");
   const signature = post ? postCountSignature(post) : "";
   const candidateCount = post?.candidates?.length ?? 0;
-  const compact = candidateCount >= 4;
-  const dense = candidateCount >= 6;
+  const compact = candidateCount >= 3;
+  const dense = candidateCount >= 4;
   const listRef = useHallListScroll(
-    post && phase === "rank" ? `${post.id}:${signature}` : "idle",
-    phase === "rank" ? 1800 : 60_000,
+    post ? `${post.id}:${signature}` : "idle",
+    900,
+    Boolean(post) && phase !== "post",
   );
 
   useEffect(() => {
@@ -217,18 +222,18 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
           ) : null}
         </AnimatePresence>
 
-        <div className={cn("flex shrink-0 items-end justify-between gap-4 border-b border-slate-100 px-5 sm:px-6", dense ? "py-2" : "py-3")}>
+        <div className={cn("flex shrink-0 items-end justify-between gap-4 border-b border-slate-100 px-4 sm:px-5", dense ? "py-1.5" : compact ? "py-2" : "py-3")}>
           <div className="min-w-0">
             <p className="text-[10px] font-black tracking-[0.28em] text-slate-400">POST</p>
             <h2
               className={cn(
                 "mt-0.5 font-black uppercase leading-tight tracking-tight text-slate-950",
-                dense ? "text-lg sm:text-2xl" : compact ? "text-xl sm:text-2xl" : "text-xl sm:text-3xl",
+                dense ? "text-base sm:text-xl" : compact ? "text-lg sm:text-2xl" : "text-xl sm:text-3xl",
               )}
             >
               {post.name}
             </h2>
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
               {formatNumber(countedBallots)} counted
               {votesPolled > 0 ? ` · ${formatNumber(votesPolled)} polled` : ""}
             </p>
@@ -255,7 +260,8 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
 
         <div
           ref={listRef}
-          className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          data-hall-scroll="latest"
+          className="h-0 min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {!showPeople ? (
             <div className="h-full" />
@@ -378,28 +384,26 @@ function RevealRow({
   const won = badge === "WON";
   const lead = badge === "LEAD";
   const tied = badge === "TIE";
-  const photo = dense ? "size-9 sm:size-10" : compact ? "size-11 sm:size-12" : "size-14 sm:size-16";
+  const photo = dense ? "size-8" : compact ? "size-10" : "size-14 sm:size-16";
 
   return (
     <motion.article
-      layout
-      initial={{ opacity: 0, y: 18 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
-        layout: { type: "spring", stiffness: 70, damping: 18 },
-        delay: showRank ? 0 : index * 0.08,
-        duration: 0.45,
+        delay: showRank ? 0 : index * 0.05,
+        duration: 0.35,
       }}
       className={cn(
         "flex items-center border-b border-slate-100",
-        dense ? "gap-2 px-3 py-1 sm:px-4" : compact ? "gap-2.5 px-4 py-1.5 sm:px-5" : "gap-3 px-4 py-3 sm:gap-4 sm:px-6",
+        dense ? "gap-2 px-3 py-0.5 sm:px-4" : compact ? "gap-2 px-4 py-1 sm:px-5" : "gap-3 px-4 py-3 sm:gap-4 sm:px-6",
         showRank && won ? "border-l-4 border-l-slate-900 bg-slate-50" : showRank && tied ? "border-l-4 border-l-slate-300" : "bg-white",
       )}
     >
       <span
         className={cn(
           "flex shrink-0 items-center justify-center rounded-sm bg-slate-100 font-black tabular-nums text-slate-600",
-          dense ? "size-7 text-xs" : compact ? "size-8 text-sm" : "size-9 text-sm",
+          dense ? "size-6 text-[11px]" : compact ? "size-7 text-xs" : "size-9 text-sm",
         )}
       >
         {showRank && maxVotes > 0 ? rank : "–"}
@@ -420,7 +424,7 @@ function RevealRow({
           className={cn(
             "flex shrink-0 items-center justify-center rounded-full font-black ring-2",
             photo,
-            dense ? "text-xs" : "text-lg",
+            dense ? "text-[11px]" : compact ? "text-xs" : "text-lg",
             showRank && (won || lead) ? "ring-slate-900" : "ring-slate-200",
           )}
           style={{ background: theme.bg, color: theme.fg }}
@@ -429,26 +433,38 @@ function RevealRow({
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "truncate font-black tracking-tight text-slate-950",
-            dense ? "text-base sm:text-lg" : compact ? "text-lg sm:text-xl" : "text-lg sm:text-2xl",
-          )}
-        >
-          {person.name}
-        </p>
-        <div className={cn("flex flex-wrap items-center gap-2", dense ? "mt-0.5" : "mt-1")}>
+        <div className="flex min-w-0 items-baseline gap-2">
+          <p
+            className={cn(
+              "truncate font-black leading-tight tracking-tight text-slate-950",
+              dense ? "text-sm sm:text-base" : compact ? "text-base sm:text-lg" : "text-lg sm:text-2xl",
+            )}
+          >
+            {person.name}
+          </p>
+          {showRank && badge !== "TRAIL" ? (
+            <span
+              className={cn(
+                "hidden shrink-0 rounded-sm border px-1.5 py-0.5 text-[9px] font-black tracking-[0.12em] sm:inline",
+                won || lead ? "border-slate-900 bg-slate-900 text-white" : "border-slate-400 text-slate-600",
+              )}
+            >
+              {badge}
+            </span>
+          ) : null}
+        </div>
+        <div className={cn("flex flex-wrap items-center gap-1.5", dense ? "mt-0" : "mt-0.5")}>
           <span
-            className="rounded-sm px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide"
+            className="rounded-sm px-1 py-px text-[9px] font-black uppercase tracking-wide"
             style={{ background: theme.bg, color: theme.fg }}
           >
             {panel}
           </span>
-          {classLabel && !dense ? (
+          {classLabel && !compact ? (
             <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{classLabel}</span>
           ) : null}
         </div>
-        <div className={cn("overflow-hidden rounded-full bg-slate-100", dense ? "mt-1 h-1.5" : "mt-2 h-2")}>
+        <div className={cn("overflow-hidden rounded-full bg-slate-100", dense ? "mt-0.5 h-1" : compact ? "mt-1 h-1" : "mt-2 h-2")}>
           <motion.div
             className="h-full rounded-full bg-slate-800"
             initial={{ width: 0 }}
@@ -457,25 +473,15 @@ function RevealRow({
           />
         </div>
       </div>
-      {showRank && badge !== "TRAIL" ? (
-        <span
-          className={cn(
-            "hidden shrink-0 rounded-sm border px-2 py-1 text-[11px] font-black tracking-[0.14em] sm:inline",
-            won || lead ? "border-slate-900 bg-slate-900 text-white" : "border-slate-400 text-slate-600",
-          )}
-        >
-          {badge}
-        </span>
-      ) : null}
-      <div className={cn("shrink-0 text-right", dense ? "w-14 sm:w-20" : "w-16 sm:w-24", showBars ? "opacity-100" : "opacity-0")}>
+      <div className={cn("shrink-0 text-right", dense ? "w-12 sm:w-16" : compact ? "w-14 sm:w-20" : "w-16 sm:w-24", showBars ? "opacity-100" : "opacity-0")}>
         <LiveCounter
           value={showBars ? person.votes : 0}
           className={cn(
             "block font-black tabular-nums leading-none text-slate-950",
-            dense ? "text-xl sm:text-2xl" : compact ? "text-2xl sm:text-3xl" : "text-2xl sm:text-4xl",
+            dense ? "text-lg sm:text-xl" : compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-4xl",
           )}
         />
-        <p className="mt-0.5 text-[10px] font-bold tabular-nums text-slate-500">{showBars ? `${share}%` : ""}</p>
+        <p className="text-[10px] font-bold leading-none tabular-nums text-slate-500">{showBars ? `${share}%` : ""}</p>
       </div>
     </motion.article>
   );
@@ -500,18 +506,17 @@ function InvalidRevealRow({
 
   return (
     <motion.article
-      layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
         "flex items-center border-t border-red-100 bg-red-50",
-        dense ? "gap-2 px-3 py-1 sm:px-4" : compact ? "gap-2.5 px-4 py-1.5 sm:px-5" : "gap-3 px-4 py-3 sm:gap-4 sm:px-6",
+        dense ? "gap-2 px-3 py-0.5 sm:px-4" : compact ? "gap-2 px-4 py-1 sm:px-5" : "gap-3 px-4 py-3 sm:gap-4 sm:px-6",
       )}
     >
       <span
         className={cn(
           "flex shrink-0 items-center justify-center rounded-sm bg-red-100 font-black text-red-700",
-          dense ? "size-7 text-[9px]" : "size-9 text-[10px]",
+          dense ? "size-6 text-[8px]" : compact ? "size-7 text-[9px]" : "size-9 text-[10px]",
         )}
       >
         INV
@@ -519,13 +524,13 @@ function InvalidRevealRow({
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            "font-black tracking-tight text-red-900",
-            dense ? "text-base sm:text-lg" : compact ? "text-lg sm:text-xl" : "text-lg sm:text-2xl",
+            "font-black leading-tight tracking-tight text-red-900",
+            dense ? "text-sm sm:text-base" : compact ? "text-base sm:text-lg" : "text-lg sm:text-2xl",
           )}
         >
           {label}
         </p>
-        <div className={cn("overflow-hidden rounded-full bg-red-100", dense ? "mt-1 h-1.5" : "mt-2 h-2")}>
+        <div className={cn("overflow-hidden rounded-full bg-red-100", dense ? "mt-0.5 h-1" : compact ? "mt-1 h-1" : "mt-2 h-2")}>
           <motion.div
             className="h-full rounded-full bg-red-400"
             initial={{ width: 0 }}
@@ -534,15 +539,15 @@ function InvalidRevealRow({
           />
         </div>
       </div>
-      <div className={cn("shrink-0 text-right", dense ? "w-14 sm:w-20" : "w-16 sm:w-24")}>
+      <div className={cn("shrink-0 text-right", dense ? "w-12 sm:w-16" : compact ? "w-14 sm:w-20" : "w-16 sm:w-24")}>
         <LiveCounter
           value={votes}
           className={cn(
             "block font-black tabular-nums leading-none text-red-700",
-            dense ? "text-xl sm:text-2xl" : compact ? "text-2xl sm:text-3xl" : "text-2xl sm:text-4xl",
+            dense ? "text-lg sm:text-xl" : compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-4xl",
           )}
         />
-        <p className="mt-0.5 text-[10px] font-bold tabular-nums text-red-600">{share}%</p>
+        <p className="text-[10px] font-bold leading-none tabular-nums text-red-600">{share}%</p>
       </div>
     </motion.article>
   );

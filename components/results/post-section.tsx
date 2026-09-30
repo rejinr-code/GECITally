@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { CandidateCard } from "@/components/results/candidate-card";
 import { LiveCounter } from "@/components/results/live-counter";
-import { WINNER_BURST_MS, WinnerBurst } from "@/components/results/winner-burst";
+import { WinnerBurst, winnerBurstMs } from "@/components/results/winner-burst";
 import { useHallListScroll } from "@/hooks/use-hall-list-scroll";
 import { candidateClassLabel } from "@/lib/candidate-class";
 import { panelKey, panelTheme } from "@/lib/results-studio";
@@ -60,7 +60,9 @@ export function PostSection({
       : "COUNTING";
   const listRef = useHallListScroll(
     post.id,
-    declared && (winners.length > 0 || tiedDeclared.length > 0) ? WINNER_BURST_MS + 600 : 1200,
+    declared && (winners.length > 0 || tiedDeclared.length > 0)
+      ? winnerBurstMs(winners.length + tiedDeclared.length) + 600
+      : 1200,
   );
 
   return (
@@ -182,6 +184,7 @@ export function PostSection({
                   maxVotes={maxVotes}
                   share={percent(candidate.votes, countedMarks)}
                   margin={leadMargin}
+                  dense={ranked.length >= 4}
                 />
               );
             })

@@ -3,11 +3,17 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import type { LiveCandidate } from "@/lib/types";
+import { useHallListScroll } from "@/hooks/use-hall-list-scroll";
 import { candidateClassLabel } from "@/lib/candidate-class";
 import { panelKey, panelTheme } from "@/lib/results-studio";
 import { cn, initials } from "@/lib/utils";
 
 export const WINNER_BURST_MS = 4800;
+
+export function winnerBurstMs(people: number) {
+  if (people <= 2) return WINNER_BURST_MS;
+  return WINNER_BURST_MS + Math.min(7000, (people - 2) * 800);
+}
 
 const CONFETTI = Array.from({ length: 28 }, (_, index) => ({
   id: index,
@@ -32,16 +38,19 @@ export function WinnerBurst({
   seats: number;
 }) {
   const [visible, setVisible] = useState(true);
+  const people = winners.length + tied.length;
+  const holdMs = winnerBurstMs(people);
+  const crowded = people >= 3 || (winners.length > 0 && tied.length > 0);
+  const listRef = useHallListScroll(`${postId}:burst`, 700, crowded && visible);
 
   useEffect(() => {
     setVisible(true);
-    const timer = window.setTimeout(() => setVisible(false), WINNER_BURST_MS);
+    const timer = window.setTimeout(() => setVisible(false), holdMs);
     return () => window.clearTimeout(timer);
-  }, [postId]);
+  }, [postId, holdMs]);
 
   if ((!winners.length && !tied.length) || !visible) return null;
 
-  const multi = winners.length + tied.length > 1;
   const headline = tied.length && !winners.length ? "TIE" : seats > 1 ? "ELECTED" : "WINS";
   const remainingSeats = Math.max(0, seats - winners.length);
 
@@ -66,50 +75,89 @@ export function WinnerBurst({
           }
         />
       ))}
-      <motion.div
-        className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center md:px-8"
-        initial={{ scale: 0.7, y: 30 }}
-        animate={{ scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 160, damping: 14 }}
-      >
-        <p className="rounded-sm bg-red-600 px-4 py-1.5 text-xs font-black tracking-[0.4em] text-white sm:text-sm">
-          RESULT DECLARED
-        </p>
-        <p className="mt-2 text-[11px] font-black tracking-[0.32em] text-red-600">POST</p>
-        <p className="max-w-4xl px-2 text-lg font-black uppercase leading-tight tracking-tight text-slate-950 sm:text-2xl">
-          {postName}
-        </p>
-        {multi || tied.length > 0 ? (
-          <>
-            <p
-              className="mt-2 bg-[linear-gradient(90deg,#fde68a,#f59e0b,#facc15,#fde68a)] bg-[length:200%_100%] bg-clip-text text-5xl font-black tracking-tight text-transparent md:text-6xl"
-              style={{ animation: "goldShine 1.6s linear infinite" }}
-            >
-              {headline}
-            </p>
+      <div className="absolute inset-0 flex min-h-0 flex-col px-4 py-3 md:px-8">
+        <div className="shrink-0 text-center">
+          <p className="inline-block rounded-sm bg-red-600 px-3 py-1 text-[10px] font-black tracking-[0.4em] text-white sm:text-xs">
+            RESULT DECLARED
+          </p>
+          <p className="mt-1.5 text-[10px] font-black tracking-[0.32em] text-red-600">POST</p>
+          <p className="mx-auto max-w-4xl px-2 text-base font-black uppercase leading-tight tracking-tight text-slate-950 sm:text-xl">
+            {postName}
+          </p>
+          <p
+            className={cn(
+              "mt-1 bg-[linear-gradient(90deg,#fde68a,#f59e0b,#facc15,#fde68a)] bg-[length:200%_100%] bg-clip-text font-black tracking-tight text-transparent",
+              crowded ? "text-3xl md:text-4xl" : "text-4xl md:text-6xl",
+            )}
+            style={{ animation: "goldShine 1.6s linear infinite" }}
+          >
+            {headline}
+          </p>
+        </div>
+
+        {crowded ? (
+          <div
+            ref={listRef}
+            data-hall-scroll="winners"
+            className="mx-auto mt-2 h-0 min-h-0 w-full max-w-2xl flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             {winners.length > 0 ? (
-              <div
-                className={cn(
-                  "mt-3 grid w-full max-w-3xl items-start justify-items-center gap-4",
-                  winners.length === 1 ? "grid-cols-1" : winners.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3",
-                )}
-              >
+              <section className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-1.5">
+                <p className="text-[10px] font-black tracking-[0.24em] text-amber-800">
+                  ELECTED · {winners.length} {winners.length === 1 ? "SEAT" : "SEATS"}
+                </p>
+                <div className="mt-0.5 divide-y divide-amber-100">
+                  {winners.map((winner, index) => (
+                    <WinnerRow key={winner.id} winner={winner} index={index} badge="WON" />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+            {tied.length > 0 ? (
+              <section className="mt-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5">
+                <p className="text-[10px] font-black tracking-[0.24em] text-sky-800">
+                  TIED FOR {remainingSeats || seats} REMAINING SEAT
+                  {(remainingSeats || seats) === 1 ? "" : "S"}
+                </p>
+                <div className="mt-0.5 divide-y divide-sky-100">
+                  {tied.map((candidate, index) => (
+                    <WinnerRow
+                      key={candidate.id}
+                      winner={candidate}
+                      index={winners.length + index}
+                      badge="TIE"
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        ) : winners.length === 1 && tied.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="flex items-center gap-5">
+              <WinnerFace winner={winners[0]} />
+              <div className="text-left">
+                <p className="text-3xl font-black text-slate-950 md:text-4xl">{winners[0].name}</p>
+                <WinnerDetail winner={winners[0]} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex min-h-0 flex-1 flex-col items-center overflow-y-auto">
+            {winners.length > 0 ? (
+              <div className="flex flex-wrap items-start justify-center gap-6">
                 {winners.map((winner, index) => (
-                  <WinnerPortrait key={winner.id} winner={winner} index={index} compact={winners.length + tied.length > 1} />
+                  <WinnerPortrait key={winner.id} winner={winner} index={index} compact={people > 1} />
                 ))}
               </div>
             ) : null}
             {tied.length > 0 ? (
-              <>
-                <p className="mt-3 text-xs font-black tracking-[0.28em] text-sky-700">
-                  TIE FOR {remainingSeats || seats} SEAT{remainingSeats === 1 ? "" : "S"}
+              <div className="mt-4 w-full max-w-3xl rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+                <p className="text-center text-xs font-black tracking-[0.28em] text-sky-700">
+                  TIED FOR {remainingSeats || seats} REMAINING SEAT
+                  {(remainingSeats || seats) === 1 ? "" : "S"}
                 </p>
-                <div
-                  className={cn(
-                    "mt-2 grid w-full max-w-3xl items-start justify-items-center gap-4",
-                    tied.length === 1 ? "grid-cols-1" : "grid-cols-2",
-                  )}
-                >
+                <div className="mt-3 flex flex-wrap items-start justify-center gap-6">
                   {tied.map((candidate, index) => (
                     <WinnerPortrait
                       key={candidate.id}
@@ -120,25 +168,11 @@ export function WinnerBurst({
                     />
                   ))}
                 </div>
-              </>
+              </div>
             ) : null}
-          </>
-        ) : (
-          <div className="mt-4 flex items-center gap-5">
-            <WinnerFace winner={winners[0]} />
-            <div className="text-left">
-              <p
-                className="bg-[linear-gradient(90deg,#fde68a,#f59e0b,#facc15,#fde68a)] bg-[length:200%_100%] bg-clip-text text-6xl font-black tracking-tight text-transparent md:text-7xl"
-                style={{ animation: "goldShine 1.6s linear infinite" }}
-              >
-                {headline}
-              </p>
-              <p className="mt-1 text-3xl font-black text-slate-950 md:text-4xl">{winners[0].name}</p>
-              <WinnerDetail winner={winners[0]} />
-            </div>
           </div>
         )}
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
@@ -209,6 +243,56 @@ function WinnerPortrait({
         {winner.name}
       </p>
       <WinnerDetail winner={winner} />
+    </motion.div>
+  );
+}
+
+function WinnerRow({
+  winner,
+  index,
+  badge,
+}: {
+  winner: LiveCandidate;
+  index: number;
+  badge: "WON" | "TIE";
+}) {
+  const theme = panelTheme(winner.panel_name, winner.panel_color);
+  const detail = winnerDetail(winner);
+  return (
+    <motion.div
+      className="flex items-center gap-2.5 py-1"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.06 + index * 0.04 }}
+    >
+      {winner.photo_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={winner.photo_url} alt="" className="size-9 shrink-0 rounded-full object-cover ring-2 ring-white" />
+      ) : (
+        <div
+          className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-black ring-2 ring-white"
+          style={{ background: theme.bg, color: theme.fg }}
+        >
+          {initials(winner.name ?? "")}
+        </div>
+      )}
+      <div className="min-w-0 flex-1 text-left">
+        <p className="truncate text-base font-black leading-tight tracking-tight text-slate-950">{winner.name}</p>
+        {detail ? (
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{detail}</p>
+        ) : null}
+      </div>
+      <span className="shrink-0 text-right text-sm font-black tabular-nums text-slate-800">
+        {winner.votes}
+      </span>
+      <span
+        className={cn(
+          "w-12 shrink-0 rounded-sm px-1.5 py-0.5 text-center text-[10px] font-black tracking-[0.16em]",
+          badge === "WON" ? "bg-amber-300 text-slate-950" : "bg-sky-200 text-sky-950",
+        )}
+      >
+        {badge}
+      </span>
     </motion.div>
   );
 }

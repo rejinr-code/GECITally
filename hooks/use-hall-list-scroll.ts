@@ -1,57 +1,69 @@
 import { useEffect, useRef } from "react";
 
-export function useHallListScroll(resetKey: string, delayMs: number) {
+export function useHallListScroll(resetKey: string, delayMs: number, enabled = true) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    if (!enabled) return;
 
     let raf = 0;
     let cancelled = false;
     let dir: 1 | -1 = 1;
     let last = 0;
     let offset = 0;
-    let holdUntil = performance.now() + delayMs;
+    let holdUntil = 0;
     const SPEED = 42;
 
-    el.scrollTop = 0;
+    function tick(now: number) {
+      if (cancelled) return;
+      const node = ref.current;
+      if (!node) {
+        raf = window.requestAnimationFrame(tick);
+        return;
+      }
 
-    function frame(now: number) {
-      if (cancelled || !el) return;
+      if (!holdUntil) {
+        node.scrollTop = 0;
+        holdUntil = now + delayMs;
+      }
+
+      const max = Math.max(0, node.scrollHeight - node.clientHeight);
+      if (max <= 2) {
+        offset = 0;
+        dir = 1;
+        last = now;
+        raf = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      if (now < holdUntil) {
+        last = now;
+        raf = window.requestAnimationFrame(tick);
+        return;
+      }
+
       const dt = last ? Math.min(48, now - last) : 16;
       last = now;
-      const max = Math.max(0, el.scrollHeight - el.clientHeight);
-      if (max <= 8) {
-        offset = 0;
-        el.scrollTop = 0;
-        raf = window.requestAnimationFrame(frame);
-        return;
-      }
-      if (now < holdUntil) {
-        raf = window.requestAnimationFrame(frame);
-        return;
-      }
-      offset += dir * SPEED * (dt / 1000);
-      if (dir === 1 && offset >= max) {
+      offset = Math.min(max, Math.max(0, offset + dir * SPEED * (dt / 1000)));
+      if (dir === 1 && offset >= max - 0.5) {
         offset = max;
         dir = -1;
         holdUntil = now + 1400;
-      } else if (dir === -1 && offset <= 0) {
+      } else if (dir === -1 && offset <= 0.5) {
         offset = 0;
         dir = 1;
         holdUntil = now + 1400;
       }
-      el.scrollTop = offset;
-      raf = window.requestAnimationFrame(frame);
+      node.scrollTop = offset;
+      raf = window.requestAnimationFrame(tick);
     }
 
-    raf = window.requestAnimationFrame(frame);
+    raf = window.requestAnimationFrame(tick);
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(raf);
     };
-  }, [resetKey, delayMs]);
+  }, [resetKey, delayMs, enabled]);
 
   return ref;
 }
