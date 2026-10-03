@@ -527,12 +527,16 @@ class _CountingView extends StatelessWidget {
                                     slot: slot,
                                     current: slot == desk.currentSlot,
                                     label: desk.labelForId(desk.draft[slot]),
+                                    onTap: () => desk.selectSlot(slot),
                                   ),
                               ],
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              "Select the ${ordinalMark(desk.currentSlot)} candidate${desk.fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid ${ordinalMark(desk.currentSlot)} only if that mark is spoilt.",
+                              desk.ballotReady
+                                  ? "Vote on another candidate to replace the ${ordinalMark(desk.currentSlot)} mark. Vote on a marked candidate to change that mark instead."
+                                  : "Select the ${ordinalMark(desk.currentSlot)} candidate${desk.fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid ${ordinalMark(desk.currentSlot)} only if that mark is spoilt.",
+                                  : "Select the ${ordinalMark(desk.currentSlot)} candidate${desk.fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid ${ordinalMark(desk.currentSlot)} only if that mark is spoilt.",
                               style: TextStyle(
                                 color: theme.text,
                                 fontWeight: FontWeight.w600,
@@ -706,17 +710,19 @@ class _SlotChip extends StatelessWidget {
     required this.current,
     this.label,
     this.compact = false,
+    this.onTap,
   });
 
   final int slot;
   final bool current;
   final String? label;
   final bool compact;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = slotTheme(slot);
-    return Container(
+    final chip = Container(
       padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: compact ? 4 : 6),
       decoration: BoxDecoration(
         color: current ? theme.chip : Colors.white.withValues(alpha: 0.8),
@@ -736,6 +742,8 @@ class _SlotChip extends StatelessWidget {
         ),
       ),
     );
+    if (onTap == null) return chip;
+    return GestureDetector(onTap: onTap, child: chip);
   }
 }
 
@@ -754,78 +762,100 @@ class _CandidateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLast = row.id == desk.lastId;
     final invalidActive = row.invalid && isLast;
-    final alreadyOnBallot = desk.multiSeat && !row.invalid && desk.draft.contains(row.id);
+    final markedSlot = desk.slotOnBallot(row.id);
+    final alreadyOnBallot = desk.multiSeat && markedSlot >= 0;
+    final occupyingCurrent = alreadyOnBallot && markedSlot == desk.currentSlot;
     final last = desk.lastSlot != null ? slotTheme(desk.lastSlot!) : null;
     Color? bg;
-    if (invalidActive) {
+    if (invalidActive || (occupyingCurrent && row.invalid)) {
       bg = GeciColors.red50;
+    } else if (occupyingCurrent) {
+      bg = Colors.white.withValues(alpha: 0.7);
     } else if (isLast && !row.invalid) {
       bg = last?.last;
     }
-    final theme = slotTheme(desk.currentSlot);
-    return Opacity(
-      opacity: alreadyOnBallot ? 0.6 : 1,
-      child: Container(
-        color: bg,
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    row.name,
+    final theme = alreadyOnBallot ? slotTheme(markedSlot) : slotTheme(desk.currentSlot);
+    return Container(
+      color: bg,
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    text: row.name,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: invalidActive ? GeciColors.red900 : GeciColors.emerald950,
                     ),
+                    children: [
+                      if (alreadyOnBallot)
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: _SlotChip(
+                              slot: markedSlot,
+                              current: true,
+                              label: null,
+                              compact: true,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
+                ),
+                Text(
+                  [row.panel, row.classLabel].where((part) => part != null && part.isNotEmpty).join(" · "),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: invalidActive ? GeciColors.red700 : GeciColors.mutedForeground,
+                  ),
+                ),
+                if (desk.multiSeat && !row.invalid)
                   Text(
-                    [row.panel, row.classLabel].where((part) => part != null && part.isNotEmpty).join(" · "),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: invalidActive ? GeciColors.red700 : GeciColors.mutedForeground,
-                    ),
+                    [
+                      for (var slot = 0; slot < desk.marksPerBallot; slot += 1)
+                        "${ordinalMark(slot)} ${formatNumber((desk.candidateSlots[row.id]?[slot] ?? 0) + (desk.pendingCandidateSlots[row.id]?[slot] ?? 0))}",
+                    ].join(" · "),
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: GeciColors.emerald700),
+                  )
+                else if (!desk.multiSeat && row.pending > 0)
+                  const Text(
+                    "+1 to confirm",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: GeciColors.amber700),
                   ),
-                  if (desk.multiSeat && !row.invalid)
-                    Text(
-                      [
-                        for (var slot = 0; slot < desk.marksPerBallot; slot += 1)
-                          "${ordinalMark(slot)} ${formatNumber((desk.candidateSlots[row.id]?[slot] ?? 0) + (desk.pendingCandidateSlots[row.id]?[slot] ?? 0))}",
-                      ].join(" · "),
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: GeciColors.emerald700),
-                    )
-                  else if (row.pending > 0)
-                    const Text(
-                      "+1 to confirm",
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: GeciColors.amber700),
-                    ),
-                ],
-              ),
+              ],
             ),
-            Text(
-              formatNumber(row.count),
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: invalidActive ? GeciColors.red700 : GeciColors.emerald800,
-              ),
+          ),
+          Text(
+            formatNumber(row.count),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: invalidActive ? GeciColors.red700 : GeciColors.emerald800,
             ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: desk.voteDisabled(row) ? null : onVote,
-              style: FilledButton.styleFrom(
-                backgroundColor: row.invalid ? GeciColors.destructive : (desk.multiSeat ? theme.vote : GeciColors.primary),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(64, 36),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text("Vote"),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: desk.voteDisabled(row) ? null : onVote,
+            style: FilledButton.styleFrom(
+              backgroundColor: row.invalid
+                  ? GeciColors.destructive
+                  : occupyingCurrent
+                      ? Colors.white
+                      : (desk.multiSeat ? theme.vote : GeciColors.primary),
+              foregroundColor: occupyingCurrent && !row.invalid ? theme.chip : Colors.white,
+              minimumSize: const Size(64, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-          ],
-        ),
+            child: Text(alreadyOnBallot ? ordinalMark(markedSlot) : "Vote"),
+          ),
+        ],
       ),
     );
   }

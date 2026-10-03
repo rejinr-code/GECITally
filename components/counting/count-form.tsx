@@ -117,6 +117,25 @@ function emptySlotMap(candidates: Candidate[], seats: number) {
   ) as Record<string, number[]>;
 }
 
+function pendingFromDraft(
+  draft: (string | null)[],
+  candidates: Candidate[],
+  seats: number,
+): { adds: Record<string, number>; slots: Record<string, number[]> } | null {
+  if (!draft.every(Boolean)) return null;
+  const adds: Record<string, number> = {};
+  const slots = emptySlotMap(candidates, seats);
+  draft.forEach((id, slot) => {
+    if (!id) return;
+    adds[id] = (adds[id] ?? 0) + 1;
+    if (id.startsWith("__invalid")) return;
+    const marks = [...(slots[id] ?? Array.from({ length: Math.max(seats, 1) }, () => 0))];
+    marks[slot] = (marks[slot] ?? 0) + 1;
+    slots[id] = marks;
+  });
+  return { adds, slots };
+}
+
 export function CountForm({
   postId,
   postName,
@@ -143,6 +162,7 @@ export function CountForm({
     emptySlotMap(candidates, marksPerBallot),
   );
   const [draft, setDraft] = useState<(string | null)[]>(() => emptyDraft(marksPerBallot));
+  const [editSlot, setEditSlot] = useState<number | null>(null);
   const [lastId, setLastId] = useState<string | null>(null);
   const [lastSlot, setLastSlot] = useState<number | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -168,9 +188,16 @@ export function CountForm({
   const pendingMarks = pendingTotalOf(pendingAdds);
   const committedTotal = marksToBallots(committedMarks, marksPerBallot);
   const pendingTotal = marksToBallots(pendingMarks, marksPerBallot);
-  const fillingBallot = multiSeat && draft.some(Boolean);
-  const currentSlot = multiSeat ? draft.findIndex((slot) => slot == null) : 0;
-  const activeSlot = multiSeat ? Math.max(currentSlot, 0) : 0;
+  const firstEmpty = multiSeat ? draft.findIndex((slot) => slot == null) : 0;
+  const fillingBallot = multiSeat && draft.some(Boolean) && firstEmpty >= 0;
+  const ballotReady = multiSeat && pendingTotal > 0 && !fillingBallot;
+  const activeSlot = !multiSeat
+    ? 0
+    : editSlot != null
+      ? editSlot
+      : firstEmpty >= 0
+        ? firstEmpty
+        : (lastSlot ?? marksPerBallot - 1);
   const theme = slotTheme(activeSlot);
   const waitingOnSupervisor = requireSupervisor && Boolean(pendingRound);
   const blocked = waitingOnSupervisor || !countingOpen || postComplete;
@@ -185,6 +212,27 @@ export function CountForm({
     committedTotal > 0 &&
     (exactRoundRequired ? committedTotal === roundCap : committedTotal <= roundSize);
 
+  function applyDraft(next: (string | null)[]) {
+    setDraft(next);
+    const pending = pendingFromDraft(next, candidates, marksPerBallot);
+    if (pending) {
+      setPendingAdds(pending.adds);
+      setPendingCandidateSlots(pending.slots);
+    } else {
+      setPendingAdds({});
+      setPendingCandidateSlots(emptySlotMap(candidates, marksPerBallot));
+    }
+  }
+
+  function selectSlot(slot: number) {
+    if (!multiSeat || blocked) return;
+    if (!draft[slot] && slot !== firstEmpty) return;
+    setEditSlot(slot);
+    setLastSlot(slot);
+    setLastId(draft[slot] ?? lastId);
+    setError(null);
+  }
+
   function queueVote(candidateId: string) {
     if (!canCount) return;
     setError(null);
@@ -196,18 +244,22 @@ export function CountForm({
       return;
     }
 
-    if (pendingTotal > 0 && !fillingBallot) {
-      setError("Confirm this ballot first.");
+    const isInvalidMark = candidateId.startsWith("__invalid_");
+    const existingSlot = draft.findIndex((id) => id === candidateId);
+    if (existingSlot >= 0) {
+      if (ballotReady) selectSlot(existingSlot);
       return;
     }
 
-    const slot = currentSlot < 0 ? 0 : currentSlot;
-    const isInvalidMark = candidateId.startsWith("__invalid_");
-    if (isInvalidMark && candidateId !== invalidSlotKey(slot)) {
+    const parsedInvalid = isInvalidMark
+      ? Number(candidateId.replace("__invalid_", "").replace("__", ""))
+      : null;
+    const slot = parsedInvalid != null && Number.isFinite(parsedInvalid) ? parsedInvalid : activeSlot;
+    if (isInvalidMark && !draft[slot] && slot !== firstEmpty) {
       setError(`Cast the ${ordinalMark(slot)} vote on this ballot first.`);
       return;
     }
-    if (!isInvalidMark && draft.includes(candidateId)) {
+    if (!isInvalidMark && draft.includes(candidateId) && draft[slot] !== candidateId) {
       setError("This candidate is already marked on this ballot.");
       return;
     }
@@ -216,35 +268,15 @@ export function CountForm({
     next[slot] = candidateId;
     setLastId(candidateId);
     setLastSlot(slot);
-    if (next.every(Boolean)) {
-      setPendingAdds(() => {
-        const queued: Record<string, number> = {};
-        for (const id of next) {
-          if (!id) continue;
-          queued[id] = (queued[id] ?? 0) + 1;
-        }
-        return queued;
-      });
-      setPendingCandidateSlots(() => {
-        const queued = emptySlotMap(candidates, marksPerBallot);
-        next.forEach((id, slot) => {
-          if (!id || id.startsWith("__invalid")) return;
-          const marks = [...(queued[id] ?? Array.from({ length: marksPerBallot }, () => 0))];
-          marks[slot] = (marks[slot] ?? 0) + 1;
-          queued[id] = marks;
-        });
-        return queued;
-      });
-      setDraft(emptyDraft(marksPerBallot));
-    } else {
-      setDraft(next);
-    }
+    setEditSlot(null);
+    applyDraft(next);
   }
 
   function clearQueued() {
     setPendingAdds({});
     setPendingCandidateSlots(emptySlotMap(candidates, marksPerBallot));
     setDraft(emptyDraft(marksPerBallot));
+    setEditSlot(null);
     setError(null);
   }
 
@@ -269,6 +301,8 @@ export function CountForm({
     });
     setPendingAdds({});
     setPendingCandidateSlots(emptySlotMap(candidates, marksPerBallot));
+    setDraft(emptyDraft(marksPerBallot));
+    setEditSlot(null);
     if (nextTotal >= roundCap && roundCap > 0) {
       setLimitOpen(true);
     }
@@ -299,6 +333,7 @@ export function CountForm({
     setCandidateSlots(emptySlotMap(candidates, marksPerBallot));
     setLastId(null);
     setLastSlot(null);
+    setEditSlot(null);
     setError(null);
     toast.message("Round cleared. Count this round again.");
   }
@@ -335,6 +370,7 @@ export function CountForm({
       setCandidateSlots(emptySlotMap(candidates, marksPerBallot));
       setLastId(null);
       setLastSlot(null);
+      setEditSlot(null);
     });
   }
 
@@ -580,13 +616,19 @@ export function CountForm({
                   const slotStyle = slotTheme(slot);
                   const filled = Boolean(draft[slot]);
                   const current = slot === activeSlot;
+                  const selectable = filled || slot === firstEmpty;
                   return (
-                    <span
+                    <button
                       key={slot}
+                      type="button"
+                      onClick={() => selectSlot(slot)}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide",
-                        current ? slotStyle.chip : "bg-white/80 text-slate-500",
+                        "inline-flex items-center gap-1.5 rounded-full border-0 px-2.5 py-1 text-xs font-bold uppercase tracking-wide",
+                        current ? slotStyle.chip : "bg-white/80 text-slate-500 hover:bg-white",
+                        selectable ? "cursor-pointer" : "cursor-default",
+                        current && "ring-2 ring-white/80",
                       )}
+                      title={filled ? `Change the ${ordinalMark(slot)} mark` : undefined}
                     >
                       {ordinalMark(slot)}
                       {filled ? (
@@ -596,14 +638,14 @@ export function CountForm({
                       ) : current ? (
                         <span className="normal-case tracking-normal font-semibold">now</span>
                       ) : null}
-                    </span>
+                    </button>
                   );
                 })}
               </div>
               <p className={cn(compact ? "mt-1 text-xs font-semibold" : "mt-2 text-sm font-semibold", theme.text)}>
-                Select the {ordinalMark(activeSlot)} candidate
-                {fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid{" "}
-                {ordinalMark(activeSlot)} only if that mark is spoilt.
+                {ballotReady
+                  ? `Vote on another candidate to replace the ${ordinalMark(activeSlot)} mark. Vote on a marked candidate to change that mark instead.`
+                  : `Select the ${ordinalMark(activeSlot)} candidate${fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid ${ordinalMark(activeSlot)} only if that mark is spoilt.`}
               </p>
               </div>
             </div>
@@ -661,16 +703,20 @@ export function CountForm({
               const shown = row.count;
               const isLast = row.id === lastId;
               const invalidActive = row.invalid && isLast;
-              const alreadyOnBallot = multiSeat && !row.invalid && draft.includes(row.id);
-              const wrongInvalidSlot = Boolean(
-                multiSeat && row.invalid && typeof row.slot === "number" && row.slot !== currentSlot,
+              const occupyingCurrent = multiSeat && draft[activeSlot] === row.id;
+              const markedSlot = multiSeat ? draft.findIndex((id) => id === row.id) : -1;
+              const alreadyOnBallot = markedSlot >= 0;
+              const invalidSlotClosed = Boolean(
+                multiSeat &&
+                  row.invalid &&
+                  typeof row.slot === "number" &&
+                  !draft[row.slot] &&
+                  row.slot !== firstEmpty,
               );
               const voteDisabled =
-                !canCount ||
-                alreadyOnBallot ||
-                wrongInvalidSlot ||
-                (multiSeat && pendingTotal > 0 && !fillingBallot);
+                !canCount || invalidSlotClosed || (alreadyOnBallot && !ballotReady);
               const lastTheme = lastSlot != null ? slotTheme(lastSlot) : null;
+              const voteTheme = alreadyOnBallot ? slotTheme(markedSlot) : theme;
               return (
                 <div
                   key={row.id}
@@ -679,7 +725,8 @@ export function CountForm({
                     compact ? "min-h-[2.15rem] flex-1 px-3 py-0.5 sm:px-3" : "px-3 py-2 sm:px-4",
                     invalidActive && "bg-red-50",
                     isLast && !row.invalid && (lastTheme?.last ?? "bg-emerald-50/80"),
-                    alreadyOnBallot && "opacity-60",
+                    occupyingCurrent && !row.invalid && "bg-white/70",
+                    occupyingCurrent && row.invalid && "bg-red-50",
                     multiSeat && "border-white/70",
                   )}
                 >
@@ -691,6 +738,16 @@ export function CountForm({
                     )}
                   >
                     {row.name}
+                    {alreadyOnBallot ? (
+                      <span
+                        className={cn(
+                          "ml-2 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide",
+                          voteTheme.chip,
+                        )}
+                      >
+                        {ordinalMark(markedSlot)}
+                      </span>
+                    ) : null}
                   </p>
                   <p
                     className={cn(
@@ -723,7 +780,7 @@ export function CountForm({
                           );
                         })}
                       </p>
-                    ) : row.pending > 0 ? (
+                    ) : !multiSeat && row.pending > 0 ? (
                       <p className={cn("font-semibold text-amber-700", compact ? "text-[10px]" : "mt-0.5 text-[11px]")}>
                         +1 to confirm
                       </p>
@@ -733,15 +790,15 @@ export function CountForm({
                     <Button
                       type="button"
                       size="sm"
-                      variant={row.invalid ? "destructive" : "default"}
+                      variant={row.invalid ? "destructive" : occupyingCurrent ? "outline" : "default"}
                       disabled={voteDisabled}
                       className={cn(
                         "h-7 w-[3.75rem] px-2 text-xs",
-                        !row.invalid && multiSeat && theme.vote,
+                        !row.invalid && multiSeat && !occupyingCurrent && voteTheme.vote,
                       )}
                       onClick={() => queueVote(row.id)}
                     >
-                      Vote
+                      {alreadyOnBallot ? ordinalMark(markedSlot) : "Vote"}
                     </Button>
                   </div>
                 </div>

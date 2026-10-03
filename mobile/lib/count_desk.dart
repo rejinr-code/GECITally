@@ -57,6 +57,7 @@ class CountDeskController extends ChangeNotifier {
   late List<String?> draft;
   String? lastId;
   int? lastSlot;
+  int? editSlot;
   String? error;
   bool isSubmitting = false;
 
@@ -78,11 +79,16 @@ class CountDeskController extends ChangeNotifier {
   bool get exactRoundRequired => remaining != null;
   bool get waitingOnSupervisor => requireSupervisor && pendingRound != null;
   bool get blocked => waitingOnSupervisor || !countingOpen || postComplete;
-  bool get fillingBallot => multiSeat && draft.any((slot) => slot != null);
+  int get firstEmptySlot => draft.indexWhere((slot) => slot == null);
+  bool get fillingBallot =>
+      multiSeat && draft.any((slot) => slot != null) && firstEmptySlot >= 0;
+  bool get ballotReady => multiSeat && pendingTotal > 0 && !fillingBallot;
   int get currentSlot {
     if (!multiSeat) return 0;
-    final index = draft.indexWhere((slot) => slot == null);
-    return index < 0 ? 0 : index;
+    final selected = editSlot;
+    if (selected != null) return selected;
+    if (firstEmptySlot >= 0) return firstEmptySlot;
+    return lastSlot ?? (marksPerBallot - 1);
   }
 
   int get invalidCount => invalidSlots.fold(0, (sum, value) => sum + value);
@@ -201,8 +207,32 @@ class CountDeskController extends ChangeNotifier {
     draft = emptyDraft();
     lastId = null;
     lastSlot = null;
+    editSlot = null;
     error = null;
     notifyListeners();
+  }
+
+  void _syncPendingFromDraft(List<String?> next) {
+    if (!next.every((id) => id != null)) {
+      pendingAdds = {};
+      pendingCandidateSlots = emptySlotMap();
+      return;
+    }
+    final queued = <String, int>{};
+    for (final id in next) {
+      if (id == null) continue;
+      queued[id] = (queued[id] ?? 0) + 1;
+    }
+    pendingAdds = queued;
+    final queuedSlots = emptySlotMap();
+    for (var i = 0; i < next.length; i += 1) {
+      final id = next[i];
+      if (id == null || id.startsWith("__invalid")) continue;
+      final marks = [...(queuedSlots[id] ?? List<int>.filled(marksPerBallot, 0))];
+      marks[i] = marks[i] + 1;
+      queuedSlots[id] = marks;
+    }
+    pendingCandidateSlots = queuedSlots;
   }
 
   String? queueVote(String candidateId) {
@@ -217,20 +247,29 @@ class CountDeskController extends ChangeNotifier {
       return null;
     }
 
-    if (pendingTotal > 0 && !fillingBallot) {
-      error = "Confirm this ballot first.";
-      notifyListeners();
-      return error;
+    final isInvalidMark = candidateId.startsWith("__invalid_");
+    final existingSlot = draft.indexOf(candidateId);
+    if (existingSlot >= 0) {
+      if (ballotReady) selectSlot(existingSlot);
+      return null;
     }
 
-    final slot = currentSlot;
-    final isInvalidMark = candidateId.startsWith("__invalid_");
-    if (isInvalidMark && candidateId != invalidSlotKey(slot)) {
-      error = "Cast the ${ordinalMark(slot)} vote on this ballot first.";
-      notifyListeners();
-      return error;
+    late final int slot;
+    if (isInvalidMark) {
+      slot = int.tryParse(
+            candidateId.replaceAll("__invalid_", "").replaceAll("__", ""),
+          ) ??
+          currentSlot;
+      final filled = slot < draft.length && draft[slot] != null;
+      if (!filled && slot != firstEmptySlot) {
+        error = "Cast the ${ordinalMark(slot)} vote on this ballot first.";
+        notifyListeners();
+        return error;
+      }
+    } else {
+      slot = currentSlot;
     }
-    if (!isInvalidMark && draft.contains(candidateId)) {
+    if (!isInvalidMark && draft.contains(candidateId) && draft[slot] != candidateId) {
       error = "This candidate is already marked on this ballot.";
       notifyListeners();
       return error;
@@ -240,34 +279,29 @@ class CountDeskController extends ChangeNotifier {
     next[slot] = candidateId;
     lastId = candidateId;
     lastSlot = slot;
-    if (next.every((id) => id != null)) {
-      final queued = <String, int>{};
-      for (final id in next) {
-        if (id == null) continue;
-        queued[id] = (queued[id] ?? 0) + 1;
-      }
-      pendingAdds = queued;
-      final queuedSlots = emptySlotMap();
-      for (var i = 0; i < next.length; i += 1) {
-        final id = next[i];
-        if (id == null || id.startsWith("__invalid")) continue;
-        final marks = [...(queuedSlots[id] ?? List<int>.filled(marksPerBallot, 0))];
-        marks[i] = (marks[i]) + 1;
-        queuedSlots[id] = marks;
-      }
-      pendingCandidateSlots = queuedSlots;
-      draft = emptyDraft();
-    } else {
-      draft = next;
-    }
+    editSlot = null;
+    draft = next;
+    _syncPendingFromDraft(next);
     notifyListeners();
     return null;
+  }
+
+  void selectSlot(int slot) {
+    if (!multiSeat || blocked) return;
+    final filled = slot >= 0 && slot < draft.length && draft[slot] != null;
+    if (!filled && slot != firstEmptySlot) return;
+    editSlot = slot;
+    lastSlot = slot;
+    lastId = draft[slot] ?? lastId;
+    error = null;
+    notifyListeners();
   }
 
   void clearQueued() {
     pendingAdds = {};
     pendingCandidateSlots = emptySlotMap();
     draft = emptyDraft();
+    editSlot = null;
     error = null;
     notifyListeners();
   }
@@ -288,6 +322,8 @@ class CountDeskController extends ChangeNotifier {
     }
     pendingAdds = {};
     pendingCandidateSlots = emptySlotMap();
+    draft = emptyDraft();
+    editSlot = null;
     notifyListeners();
     return true;
   }
@@ -311,16 +347,17 @@ class CountDeskController extends ChangeNotifier {
   List<int>? submitInvalidSlots() => multiSeat ? invalidSlots : null;
 
   bool voteDisabled(CountRow row) {
-    final alreadyOnBallot = multiSeat && !row.invalid && draft.contains(row.id);
-    final wrongInvalidSlot = multiSeat &&
+    final markedSlot = slotOnBallot(row.id);
+    final alreadyOnBallot = multiSeat && markedSlot >= 0;
+    final invalidSlotClosed = multiSeat &&
         row.invalid &&
         row.slot != null &&
-        row.slot != currentSlot;
-    return !canCount ||
-        alreadyOnBallot ||
-        wrongInvalidSlot ||
-        (multiSeat && pendingTotal > 0 && !fillingBallot);
+        (row.slot! >= draft.length || draft[row.slot!] == null) &&
+        row.slot != firstEmptySlot;
+    return !canCount || invalidSlotClosed || (alreadyOnBallot && !ballotReady);
   }
+
+  int slotOnBallot(String id) => draft.indexOf(id);
 
   String? labelForId(String? id) {
     if (id == null) return null;

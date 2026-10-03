@@ -42,7 +42,7 @@ void main() {
     desk.dispose();
   });
 
-  test("multi-seat ballot must confirm before the next paper", () {
+  test("multi-seat Vote replaces the last mark before Confirm", () {
     final desk = CountDeskController(
       candidates: [
         candidate("a", "Anu"),
@@ -58,16 +58,78 @@ void main() {
     );
     desk.queueVote("a");
     desk.queueVote("a");
-    expect(desk.error, "This candidate is already marked on this ballot.");
+    expect(desk.error, isNull);
+    expect(desk.draft, ["a", null]);
     desk.queueVote("b");
     expect(desk.pendingTotal, 1);
     expect(desk.fillingBallot, isFalse);
+    expect(desk.draft, ["a", "b"]);
     desk.queueVote("c");
-    expect(desk.error, "Confirm this ballot first.");
+    expect(desk.error, isNull);
+    expect(desk.draft, ["a", "c"]);
+    expect(desk.lastId, "c");
+    expect(desk.canConfirmQueued, isTrue);
     desk.confirmQueued();
     expect(desk.votes["a"], 1);
-    expect(desk.votes["b"], 1);
+    expect(desk.votes["b"], 0);
+    expect(desk.votes["c"], 1);
     expect(desk.committedTotal, 1);
+    desk.dispose();
+  });
+
+  test("multi-seat tap a mark to change an earlier vote", () {
+    final desk = CountDeskController(
+      candidates: [
+        candidate("a", "Anu"),
+        candidate("b", "Binu"),
+        candidate("c", "Chitra"),
+      ],
+      seats: 2,
+      roundSize: 5,
+      votesPolled: 20,
+      countedBallots: 0,
+      countingOpen: true,
+      requireSupervisor: true,
+    );
+    desk.queueVote("a");
+    desk.queueVote("b");
+    desk.selectSlot(0);
+    desk.queueVote("c");
+    expect(desk.draft, ["c", "b"]);
+    expect(desk.lastSlot, 0);
+    desk.confirmQueued();
+    expect(desk.votes["a"], 0);
+    expect(desk.votes["b"], 1);
+    expect(desk.votes["c"], 1);
+    desk.dispose();
+  });
+
+  test("multi-seat Vote on a marked candidate picks that mark to change", () {
+    final desk = CountDeskController(
+      candidates: [
+        candidate("a", "Anu"),
+        candidate("b", "Binu"),
+        candidate("c", "Chitra"),
+      ],
+      seats: 2,
+      roundSize: 5,
+      votesPolled: 20,
+      countedBallots: 0,
+      countingOpen: true,
+      requireSupervisor: true,
+    );
+    desk.queueVote("a");
+    desk.queueVote("b");
+    expect(desk.currentSlot, 1);
+    desk.queueVote("a");
+    expect(desk.currentSlot, 0);
+    expect(desk.draft, ["a", "b"]);
+    desk.queueVote("c");
+    expect(desk.draft, ["c", "b"]);
+    desk.confirmQueued();
+    expect(desk.votes["a"], 0);
+    expect(desk.votes["c"], 1);
+    expect(desk.votes["b"], 1);
     desk.dispose();
   });
 }
