@@ -1,6 +1,6 @@
 import { reportClassLabel } from "@/lib/candidate-class";
 import type { Candidate, CountEntry, CountRound, Election, Post } from "@/lib/types";
-import { countedBallotsFromRounds, formatNumber, rankByVotesThenName, resolveSeats } from "@/lib/utils";
+import { countedBallotsFromRounds, formatNumber, officerDisplayName, rankByVotesThenName, resolveSeats } from "@/lib/utils";
 
 export type ResultReportRow = {
   serial: number;
@@ -23,6 +23,7 @@ export type ResultReport = {
   ceremonyWeekday: string;
   ceremonyTime: string;
   ceremonyVenue: string;
+  returningOfficerName: string;
   rows: ResultReportRow[];
   complete: boolean;
   pendingPosts: string[];
@@ -294,6 +295,7 @@ export function buildResultReport({
     ceremonyWeekday: election.report_ceremony_date ? weekdayName(election.report_ceremony_date) : "",
     ceremonyTime: election.report_ceremony_time?.trim() || "",
     ceremonyVenue: election.report_ceremony_venue?.trim() || "",
+    returningOfficerName: officerDisplayName(election),
     rows,
     complete,
     pendingPosts,

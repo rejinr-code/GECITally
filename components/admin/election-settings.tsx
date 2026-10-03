@@ -233,6 +233,19 @@ export function ElectionSettings({ election }: { election: Election | null }) {
               </p>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="returning_officer_name">Returning Officer name</Label>
+              <Input
+                id="returning_officer_name"
+                name="returning_officer_name"
+                defaultValue={election?.returning_officer_name ?? ""}
+                placeholder="Name as it should appear on reports"
+              />
+              <p className="text-xs text-muted-foreground">
+                Printed on counting sheets and the result declaration. This is the official name, not the login
+                account.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="count_limit">Ballots per round (N)</Label>
               <Input
                 id="count_limit"

@@ -3,15 +3,22 @@
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 
-export function PrintReportButton({ title = "GECI-College-Union-Result-Declaration" }: { title?: string }) {
+export function PrintReportButton({ title }: { title?: string }) {
   return (
     <Button
       size="lg"
       onClick={() => {
         const previous = document.title;
-        document.title = title;
+        document.documentElement.classList.add("print-document");
+        document.title = title ?? "";
+        const restore = () => {
+          document.title = previous;
+          document.documentElement.classList.remove("print-document");
+          window.removeEventListener("afterprint", restore);
+        };
+        window.addEventListener("afterprint", restore);
         window.print();
-        document.title = previous;
+        window.setTimeout(restore, 500);
       }}
     >
       <Printer />

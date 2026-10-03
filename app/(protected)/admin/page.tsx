@@ -48,6 +48,7 @@ export default async function AdminPage() {
   const { error: panelColorError } = await admin.from("panels").select("color").limit(1);
   const { error: reportDetailsError } = await admin.from("elections").select("report_file_no").limit(1);
   const { error: pollAnnouncedError } = await admin.from("elections").select("poll_announced").limit(1);
+  const { error: officerNameError } = await admin.from("elections").select("returning_officer_name").limit(1);
 
   const schemaNeedsUpdate = Boolean(panelsResult.error);
   const schemaNeedsCandidateClass = Boolean(candidateClassError);
@@ -56,6 +57,7 @@ export default async function AdminPage() {
   const schemaNeedsPanelColor = Boolean(panelColorError);
   const schemaNeedsReportDetails = Boolean(reportDetailsError);
   const schemaNeedsPollAnnounced = Boolean(pollAnnouncedError);
+  const schemaNeedsOfficerName = Boolean(officerNameError);
   const panels = schemaNeedsUpdate ? [] : ((panelsResult.data ?? []) as Panel[]);
 
   const postsWithCandidates = posts.map((post) => ({
@@ -100,6 +102,7 @@ export default async function AdminPage() {
         schemaNeedsPanelColor={schemaNeedsPanelColor}
         schemaNeedsReportDetails={schemaNeedsReportDetails}
         schemaNeedsPollAnnounced={schemaNeedsPollAnnounced}
+        schemaNeedsOfficerName={schemaNeedsOfficerName}
       />
     </div>
   );

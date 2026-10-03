@@ -117,7 +117,13 @@ export function ResultReportDocument({ report }: { report: ResultReport }) {
         </p>
 
         <div className="mt-14 flex justify-end">
-          <p className="w-[48mm] text-center text-[14px] font-bold italic">Returning Officer</p>
+          <div className="w-[52mm] text-center">
+            <div className="h-[16mm] border-b border-black" />
+            {report.returningOfficerName ? (
+              <p className="mt-1 text-[13px] font-bold">{report.returningOfficerName}</p>
+            ) : null}
+            <p className="mt-1 text-[14px] font-bold italic">Returning Officer</p>
+          </div>
         </div>
       </div>
     </article>

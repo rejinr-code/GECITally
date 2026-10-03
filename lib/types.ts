@@ -28,6 +28,7 @@ export type Election = {
   report_ceremony_date?: string | null;
   report_ceremony_time?: string | null;
   report_ceremony_venue?: string | null;
+  returning_officer_name?: string | null;
 };
 
 export type Post = {

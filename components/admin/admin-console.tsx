@@ -24,6 +24,7 @@ export function AdminConsole({
   schemaNeedsPanelColor,
   schemaNeedsReportDetails,
   schemaNeedsPollAnnounced,
+  schemaNeedsOfficerName,
 }: {
   election: Election | null;
   electionId: string | null;
@@ -38,6 +39,7 @@ export function AdminConsole({
   schemaNeedsPanelColor: boolean;
   schemaNeedsReportDetails: boolean;
   schemaNeedsPollAnnounced: boolean;
+  schemaNeedsOfficerName: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -81,6 +83,13 @@ export function AdminConsole({
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           Run <code className="font-medium">supabase/migrations/0019_poll_announced.sql</code> in
           the Supabase SQL editor so the hall can show poll completed before counting starts.
+        </p>
+      )}
+      {schemaNeedsOfficerName && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Run <code className="font-medium">supabase/migrations/0020_returning_officer_name.sql</code> in
+          the Supabase SQL editor to save the Returning Officer name for counting sheets and the result
+          declaration.
         </p>
       )}
       <Tabs defaultValue="election">

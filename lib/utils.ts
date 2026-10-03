@@ -74,6 +74,19 @@ export function roleLabel(role: string | null | undefined) {
   return role ?? "";
 }
 
+export function officerDisplayName(
+  election?: { returning_officer_name?: string | null } | null,
+  people?: Array<{ role?: string; full_name?: string | null }> | null,
+) {
+  const configured = election?.returning_officer_name?.trim();
+  if (configured) return configured;
+  return (people ?? [])
+    .filter((person) => person.role === "supervisor")
+    .map((person) => person.full_name?.trim())
+    .filter((name): name is string => Boolean(name))
+    .join(", ");
+}
+
 export function parsePositiveInt(value: unknown, fallback = 0) {
   const n = typeof value === "number" ? value : Number.parseInt(String(value), 10);
   return Number.isFinite(n) && n >= 0 ? n : fallback;

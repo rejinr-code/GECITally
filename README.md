@@ -55,7 +55,8 @@ In the Supabase SQL editor, run in order:
 17. `supabase/migrations/0017_panel_color.sql`
 18. `supabase/migrations/0018_result_report_details.sql`
 19. `supabase/migrations/0019_poll_announced.sql`
-20. `supabase/seed.sql` (optional starter posts)
+20. `supabase/migrations/0020_returning_officer_name.sql`
+21. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -101,6 +102,7 @@ copy .env.example .env
 | Path | Role | Purpose |
 |---|---|---|
 | `/admin` | Admin | Panels, posts, candidates, people, count limit, live display, election state |
+| `/admin/counting-report` | Admin | Printable round-wise counting sheets for each Counting Supervisor, with signature and Returning Officer countersignature |
 | `/staff` | Counting Supervisor | Enter per-candidate and invalid counts for assigned posts; open live results. Same desk is in the Flutter app (`mobile/`). |
 | `/supervisor` | Returning Officer | Verify or reject submitted rounds; open live results |
 | `/results/login` | Public results | Dedicated hall / public results login |

@@ -169,10 +169,11 @@ body {
 
 @page {
   size: A4;
-  margin: 16mm 18mm 18mm;
+  margin: 0;
 }
 
-.result-report {
+.result-report,
+.counting-report {
   color: #000;
   background: #fff;
 }
@@ -181,13 +182,33 @@ body {
   html,
   body {
     background: white !important;
+    margin: 0 !important;
   }
 
-  .result-report thead {
+  .result-report thead,
+  .counting-report thead {
     display: table-header-group;
   }
 
-  .result-report tr {
+  .result-report tr,
+  .counting-report tr {
     break-inside: avoid;
+  }
+
+  .counting-sign {
+    break-inside: avoid;
+  }
+
+  .counting-sheet {
+    box-sizing: border-box;
+  }
+
+  .counting-sheet:not(:last-child) {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .result-report > div {
+    padding: 14mm 16mm 16mm !important;
   }
 }

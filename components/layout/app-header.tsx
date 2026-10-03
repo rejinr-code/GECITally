@@ -4,27 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLockup } from "@/components/branding/geci-mark";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import type { NavItem } from "@/lib/nav";
 import type { UserRole } from "@/lib/types";
 import { cn, roleHome, roleLabel } from "@/lib/utils";
-
-const NAV: Record<UserRole, Array<{ href: string; label: string }>> = {
-  admin: [
-    { href: "/admin", label: "Dashboard" },
-    { href: "/admin/dummy-ballots", label: "Dummy ballots" },
-    { href: "/admin/report", label: "Result report" },
-    { href: "/results", label: "Live results" },
-  ],
-  staff: [
-    { href: "/staff", label: "Counting Supervisor" },
-    { href: "/results", label: "Live results" },
-  ],
-  supervisor: [
-    { href: "/supervisor", label: "Returning Officer" },
-    { href: "/supervisor/report", label: "Result report" },
-    { href: "/results", label: "Live results" },
-  ],
-  display: [{ href: "/results", label: "Live results" }],
-};
 
 function isCurrent(pathname: string, href: string) {
   if (pathname === href) return true;
@@ -35,9 +17,11 @@ function isCurrent(pathname: string, href: string) {
 export function AppHeader({
   role,
   name,
+  nav,
 }: {
   role: UserRole;
   name: string;
+  nav: NavItem[];
 }) {
   const pathname = usePathname();
 
@@ -48,7 +32,7 @@ export function AppHeader({
           <BrandLockup compact />
         </Link>
         <nav className="flex items-center gap-1 text-sm">
-          {NAV[role].map((item) => {
+          {nav.map((item) => {
             const current = isCurrent(pathname, item.href);
             return (
               <Link

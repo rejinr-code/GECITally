@@ -55,6 +55,7 @@ export async function upsertElection(formData: FormData) {
       date: String(formData.get("date") ?? ""),
       total_votes_polled: Number(formData.get("total_votes_polled") ?? 0),
       count_limit: Number(formData.get("count_limit") ?? 1),
+      returning_officer_name: String(formData.get("returning_officer_name") ?? "").trim() || null,
     };
 
     if (!payload.name || !payload.date) {
@@ -69,13 +70,30 @@ export async function upsertElection(formData: FormData) {
 
     if (id) {
       const { error } = await supabase.from("elections").update(payload).eq("id", id);
-      if (error) return { error: error.message };
+      if (error) {
+        if (/returning_officer_name|column/i.test(error.message)) {
+          return {
+            error: "Run supabase/migrations/0020_returning_officer_name.sql in the Supabase SQL editor first.",
+          };
+        }
+        return { error: error.message };
+      }
     } else {
       const { error } = await supabase.from("elections").insert(payload);
-      if (error) return { error: error.message };
+      if (error) {
+        if (/returning_officer_name|column/i.test(error.message)) {
+          return {
+            error: "Run supabase/migrations/0020_returning_officer_name.sql in the Supabase SQL editor first.",
+          };
+        }
+        return { error: error.message };
+      }
     }
 
     revalidatePath("/admin");
+    revalidatePath("/admin/report");
+    revalidatePath("/admin/counting-report");
+    revalidatePath("/supervisor/report");
     revalidatePath("/results");
     return { ok: true };
   } catch (error) {
