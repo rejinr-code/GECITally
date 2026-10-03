@@ -28,6 +28,9 @@ export function useRealtimeResults() {
       lastPayload.current = serialized;
       setData({
         ...results,
+        election: results.election
+          ? { ...results.election, poll_announced: Boolean(results.election.poll_announced) }
+          : null,
         posts: (Array.isArray(results.posts) ? results.posts : []).map((post) => ({
           ...post,
           candidates: Array.isArray(post.candidates)

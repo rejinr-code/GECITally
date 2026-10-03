@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { resetElectionCounts, setElectionState, setLiveDisplaySettings, upsertElection } from "@/lib/actions/admin";
+import { resetElectionCounts, setElectionState, setLiveDisplaySettings, setPollAnnounced, upsertElection } from "@/lib/actions/admin";
 import type { Election, ElectionState } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,11 +23,11 @@ const STATE_COPY: Record<ElectionState, { title: string; detail: string }> = {
   },
   counting: {
     title: "Switch to Counting?",
-    detail: "Counting Supervisors can enter votes and Returning Officers can verify rounds. Configuration edits stay limited.",
+    detail: "Counting Supervisors can enter votes and Returning Officers can verify rounds. The hall will show Counting started until the first totals appear.",
   },
   finalised: {
     title: "Switch to Finalised?",
-    detail: "Counting closes. Verified totals stay on the live results board.",
+    detail: "Counting closes. The hall will announce Counting completed, then keep the declared results on the board.",
   },
 };
 
@@ -36,9 +36,11 @@ export function ElectionSettings({ election }: { election: Election | null }) {
   const { isSubmitting: stateBusy, run: runState } = useAntiDuplicate();
   const { isSubmitting: displayBusy, run: runDisplay } = useAntiDuplicate();
   const { isSubmitting: resetBusy, run: runReset } = useAntiDuplicate();
+  const { isSubmitting: pollBusy, run: runPoll } = useAntiDuplicate();
   const [pendingState, setPendingState] = useState<ElectionState | null>(null);
   const [displayOpen, setDisplayOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState<"show" | "hide" | null>(null);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const display = liveDisplaySettings(election);
@@ -52,6 +54,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
     if (!election || election.state === state) return;
     setDisplayOpen(false);
     setResetOpen(false);
+    setPollOpen(null);
     setPassword("");
     setPasswordError(null);
     setPendingState(state);
@@ -68,6 +71,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
     if (!election) return;
     setPendingState(null);
     setResetOpen(false);
+    setPollOpen(null);
     setPassword("");
     setPasswordError(null);
     window.setTimeout(() => setDisplayOpen(true), 0);
@@ -100,6 +104,7 @@ export function ElectionSettings({ election }: { election: Election | null }) {
     if (!election) return;
     setPendingState(null);
     setDisplayOpen(false);
+    setPollOpen(null);
     setPassword("");
     setPasswordError(null);
     window.setTimeout(() => setResetOpen(true), 0);
@@ -146,6 +151,39 @@ export function ElectionSettings({ election }: { election: Election | null }) {
       }
       toast.success("Counting and live results settings updated.");
       setDisplayOpen(false);
+      setPassword("");
+      setPasswordError(null);
+    });
+  }
+
+  function openPollDialog(mode: "show" | "hide") {
+    if (!election || election.state !== "setup") return;
+    setPendingState(null);
+    setDisplayOpen(false);
+    setResetOpen(false);
+    setPassword("");
+    setPasswordError(null);
+    window.setTimeout(() => setPollOpen(mode), 0);
+  }
+
+  function closePollDialog() {
+    if (pollBusy) return;
+    setPollOpen(null);
+    setPassword("");
+    setPasswordError(null);
+  }
+
+  function confirmPoll() {
+    if (!election || !pollOpen) return;
+    void runPoll(async () => {
+      const result = await setPollAnnounced(election.id, pollOpen === "show", password);
+      if (result.error) {
+        setPasswordError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      toast.success(pollOpen === "show" ? "Hall is showing poll completed." : "Hall poll announcement hidden.");
+      setPollOpen(null);
       setPassword("");
       setPasswordError(null);
     });
@@ -225,6 +263,32 @@ export function ElectionSettings({ election }: { election: Election | null }) {
           <p className="text-sm text-muted-foreground">
             Current state: <span className="font-semibold capitalize text-foreground">{election?.state ?? "none"}</span>
           </p>
+          {election?.state === "setup" ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-medium text-emerald-950">Public hall before counting</p>
+              <p className="mt-1 text-xs text-emerald-800">
+                {election.poll_announced
+                  ? "The hall is showing Poll completed and Counting to be started soon. Switch to Counting when the count opens."
+                  : "Announce the poll on the hall before you open counting. Save overall votes polled first."}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  disabled={!election || pollBusy || Boolean(election.poll_announced)}
+                  onClick={() => openPollDialog("show")}
+                >
+                  {pollBusy && pollOpen === "show" ? <Spinner /> : null}
+                  Show poll completed
+                </Button>
+                {election.poll_announced ? (
+                  <Button type="button" variant="outline" disabled={pollBusy} onClick={() => openPollDialog("hide")}>
+                    {pollBusy && pollOpen === "hide" ? <Spinner /> : null}
+                    Hide from hall
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {STATES.map((state) => (
               <Button
@@ -542,6 +606,61 @@ export function ElectionSettings({ election }: { election: Election | null }) {
                 <Button type="submit" variant="destructive" disabled={resetBusy || !password.trim()}>
                   {resetBusy ? <Spinner /> : null}
                   Reset counts
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {pollOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="poll-confirm-title"
+            className="w-full max-w-md rounded-xl border bg-white p-6 shadow-2xl"
+          >
+            <h2 id="poll-confirm-title" className="text-lg font-semibold">
+              {pollOpen === "show" ? "Show poll completed on the hall?" : "Hide poll announcement from the hall?"}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {pollOpen === "show"
+                ? `The public view will show Poll completed with ${election?.total_votes_polled ?? 0} votes polled, then Counting to be started soon. Counting stays closed until you switch to Counting.`
+                : "The hall will stop showing the poll-completed message until you announce it again."}{" "}
+              Enter your admin password, then confirm.
+            </p>
+            <form
+              className="mt-4 space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                confirmPoll();
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="poll-password">Admin password</Label>
+                <Input
+                  id="poll-password"
+                  type="password"
+                  autoComplete="off"
+                  value={password}
+                  autoFocus
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setPasswordError(null);
+                  }}
+                  required
+                />
+              </div>
+              {passwordError ? <p className="text-sm text-red-700">{passwordError}</p> : null}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" disabled={pollBusy} onClick={closePollDialog}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={pollBusy || !password.trim()}>
+                  {pollBusy ? <Spinner /> : null}
+                  {pollOpen === "show" ? "Show on hall" : "Hide from hall"}
                 </Button>
               </div>
             </form>

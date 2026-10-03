@@ -53,7 +53,9 @@ In the Supabase SQL editor, run in order:
 15. `supabase/migrations/0015_candidate_slot_votes.sql`
 16. `supabase/migrations/0016_integrity_and_authz.sql`
 17. `supabase/migrations/0017_panel_color.sql`
-18. `supabase/seed.sql` (optional starter posts)
+18. `supabase/migrations/0018_result_report_details.sql`
+19. `supabase/migrations/0019_poll_announced.sql`
+20. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 

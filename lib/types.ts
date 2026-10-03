@@ -16,6 +16,7 @@ export type Election = {
   total_votes_polled: number;
   count_limit: number;
   state: ElectionState;
+  poll_announced?: boolean;
   results_rotate_seconds: number;
   results_require_verification: boolean;
   counting_require_verification: boolean;
@@ -124,6 +125,7 @@ export type LiveResults = {
     total_votes_polled: number;
     count_limit: number;
     state: ElectionState;
+    poll_announced?: boolean;
     results_rotate_seconds: number;
     results_require_verification: boolean;
   } | null;

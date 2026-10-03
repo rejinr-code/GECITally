@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRealtimeResults } from "@/hooks/use-realtime-results";
 import { PostSection } from "@/components/results/post-section";
 import { LatestResult, latestHoldMs, useLatestCountUpdate } from "@/components/results/latest-result";
+import { HallStageView } from "@/components/results/hall-stage";
 import { LiveCounter } from "@/components/results/live-counter";
 import { GeciMark } from "@/components/branding/geci-mark";
 import { MulearnCredit } from "@/components/branding/mulearn-credit";
@@ -13,9 +14,11 @@ import { Button } from "@/components/ui/button";
 import {
   formatDate,
   formatNumber,
+  hallVotesPolled,
   initials,
   liveDisplaySettings,
   percent,
+  publicHallStage,
 } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import {
@@ -118,6 +121,18 @@ export function ResultsBoard({
   const ticker = useMemo(() => raceTickerItems(posts), [posts]);
   const { post: latestUpdate, holdOrder } = useLatestCountUpdate(posts);
   const display = liveDisplaySettings(election);
+  const stage = publicHallStage(election, posts);
+  const votesPolled = hallVotesPolled(election, posts);
+  const [finalSplash, setFinalSplash] = useState(true);
+
+  useEffect(() => {
+    if (stage !== "final") {
+      setFinalSplash(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setFinalSplash(false), 6500);
+    return () => window.clearTimeout(timer);
+  }, [election?.id, stage]);
   const rotateMs = display.results_rotate_seconds * 1000;
   const latestKey = latestUpdate
     ? `${latestUpdate.id}:${latestUpdate.verified_rounds}:${latestUpdate.pending_rounds}:${latestUpdate.total_verified_votes}:${latestUpdate.invalid_votes}:${latestUpdate.is_finalised ? "1" : "0"}`
@@ -176,7 +191,10 @@ export function ResultsBoard({
     );
   }
 
-  const live = election.state === "counting";
+  const live = stage === "counting" || stage === "live";
+  const showStage = stage === "standby" || stage === "poll" || stage === "counting" || (stage === "final" && finalSplash);
+  const badgeLabel =
+    stage === "final" ? "FINAL" : live ? "LIVE" : stage === "poll" ? "POLL" : null;
 
   return (
     <div className={cn("studio-shell relative flex h-dvh flex-col overflow-hidden text-slate-950", bigScreen && "big-screen")}>
@@ -189,17 +207,23 @@ export function ResultsBoard({
           </Link>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
+              {badgeLabel ? (
               <span
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-black tracking-[0.22em]",
-                  live ? "bg-red-600 text-white" : "bg-amber-300 text-slate-950",
+                  live
+                    ? "bg-red-600 text-white"
+                    : stage === "poll"
+                      ? "bg-emerald-800 text-white"
+                      : "bg-amber-300 text-slate-950",
                 )}
               >
                 {live ? (
                   <span className="size-1.5 rounded-full bg-white" style={{ animation: "livePulse 1.4s ease-out infinite" }} />
                 ) : null}
-                {live ? "LIVE" : "FINAL"}
+                {badgeLabel}
               </span>
+              ) : null}
               <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">GECI Tally</p>
               <p className="truncate text-sm font-semibold text-slate-900">{election.name}</p>
               <span className="hidden text-xs text-slate-500 md:inline">{formatDate(election.date)}</span>
@@ -240,10 +264,20 @@ export function ResultsBoard({
             {bigScreen ? "Exit hall" : "Hall view"}
           </Button>
         </div>
-        {panels.length > 0 ? <PanelStandingStrip panels={panels} /> : null}
+        {panels.length > 0 && !showStage ? <PanelStandingStrip panels={panels} /> : null}
       </header>
 
       <div className="relative z-10 flex min-h-0 flex-1 gap-2 p-2 md:p-3">
+        {showStage ? (
+          <HallStageView
+            stage={stage}
+            electionName={election.name}
+            electionDate={election.date}
+            votesPolled={votesPolled}
+            postCount={posts.length}
+          />
+        ) : (
+          <>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <LatestResult post={latestUpdate} holdOrder={holdOrder} />
         </main>
@@ -267,6 +301,8 @@ export function ResultsBoard({
             </p>
           )}
         </aside>
+          </>
+        )}
       </div>
 
       <footer className="relative z-10 flex h-20 shrink-0 items-stretch gap-0 overflow-hidden border-t border-slate-200 bg-white">
@@ -282,7 +318,18 @@ export function ResultsBoard({
           </div>
         ) : null}
         <div className="min-w-0 flex-1 overflow-hidden">
-          <AnnouncedTicker items={ticker} />
+          <AnnouncedTicker
+            items={showStage ? [] : ticker}
+            emptyLabel={
+              stage === "poll"
+                ? `${formatNumber(votesPolled)} votes polled · Counting to be started soon`
+                : stage === "counting"
+                  ? "Counting started"
+                  : stage === "final"
+                    ? "Counting completed · Results declared"
+                    : election.name
+            }
+          />
         </div>
         <div className="relative z-10 hidden h-full shrink-0 lg:block">
           <MulearnCredit compact />
@@ -295,7 +342,7 @@ export function ResultsBoard({
 const TICKER_HOLD_MS = 4500;
 const TICKER_SLIDE_MS = 900;
 
-function AnnouncedTicker({ items }: { items: TickerItem[] }) {
+function AnnouncedTicker({ items, emptyLabel = "Awaiting the first count" }: { items: TickerItem[]; emptyLabel?: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const itemsKey = items
     .map((item) => `${item.post}:${item.label}:${item.people.map((person) => `${person.name}:${person.status}:${person.votes}:${person.margin ?? ""}`).join(",")}`)
@@ -346,7 +393,7 @@ function AnnouncedTicker({ items }: { items: TickerItem[] }) {
   if (!items.length) {
     return (
       <p className="flex h-full items-center px-4 text-sm font-bold uppercase tracking-wide text-slate-500">
-        Awaiting the first count
+        {emptyLabel}
       </p>
     );
   }

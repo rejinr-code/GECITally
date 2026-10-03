@@ -106,6 +106,46 @@ export async function setElectionState(electionId: string, state: ElectionState,
   }
 }
 
+export async function setPollAnnounced(electionId: string, announced: boolean, password: string) {
+  try {
+    if (typeof password !== "string" || !password.trim()) {
+      return { error: "Enter your admin password to confirm." };
+    }
+    const confirmed = await confirmAdminPassword(password);
+    if ("error" in confirmed) return { error: confirmed.error };
+
+    const { data: election, error: loadError } = await confirmed.supabase
+      .from("elections")
+      .select("id, state, total_votes_polled")
+      .eq("id", electionId)
+      .single();
+    if (loadError) return { error: loadError.message };
+    if (!election) return { error: "Election not found." };
+    if (election.state !== "setup") {
+      return { error: "Poll completed can only be shown on the hall before counting starts." };
+    }
+    if (announced && (election.total_votes_polled ?? 0) <= 0) {
+      return { error: "Save overall votes polled first, then announce poll completed." };
+    }
+
+    const { error } = await confirmed.supabase
+      .from("elections")
+      .update({ poll_announced: announced })
+      .eq("id", electionId);
+    if (error) {
+      if (error.message.includes("poll_announced")) {
+        return { error: "Run supabase/migrations/0019_poll_announced.sql in the Supabase SQL editor first." };
+      }
+      return { error: error.message };
+    }
+    revalidatePath("/admin");
+    revalidatePath("/results");
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not update hall announcement." };
+  }
+}
+
 export async function setLiveDisplaySettings(
   electionId: string,
   rotateSeconds: number,

@@ -38,8 +38,11 @@ export function CandidateCard({
 
   return (
     <motion.article
+      layout="position"
+      layoutId={`rail-${candidate.id}`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ layout: { duration: 0.85, ease: [0.22, 1, 0.32, 1] } }}
       className={cn(
         "relative overflow-hidden border-b px-3 text-slate-950 last:border-b-0",
         dense ? "py-1" : "py-2",
@@ -127,13 +130,13 @@ export function CandidateCard({
           )}
         </div>
       </div>
-      <div className={cn("w-full overflow-hidden rounded-full bg-slate-200/80", dense ? "mt-1 h-1" : "mt-2 h-2")}>
+      <div className={cn("w-full origin-left overflow-hidden rounded-full bg-slate-200/80", dense ? "mt-1 h-1" : "mt-2 h-2")}>
         <motion.div
-          className="h-full rounded-full"
+          className="h-full w-full origin-left rounded-full"
           style={{ background: elected ? "#c9a227" : leading ? "#047857" : BAR }}
-          initial={false}
-          animate={{ width: `${share}%` }}
-          transition={{ type: "spring", stiffness: 80, damping: 20 }}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: Math.max(0, share) / 100 }}
+          transition={{ duration: 2.4, ease: [0.12, 0.72, 0.18, 1] }}
         />
       </div>
     </motion.article>

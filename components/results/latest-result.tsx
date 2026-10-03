@@ -20,21 +20,24 @@ import {
   rankByVotesThenName,
 } from "@/lib/utils";
 
-const POST_MS = 3400;
-const PEOPLE_MS = 2200;
-const BARS_MS = 1600;
-export const LATEST_REVEAL_MS = POST_MS + PEOPLE_MS + BARS_MS;
+const POST_MS = 3000;
+const PEOPLE_MS = 2000;
+const BARS_MS = 5200;
+const RANK_MS = 1400;
+const COLOR_MS = 900;
+export const LATEST_REVEAL_MS = POST_MS + PEOPLE_MS + BARS_MS + RANK_MS + COLOR_MS;
+const BAR_FILL = { duration: 4.8, ease: [0.12, 0.72, 0.18, 1] as const };
 
 export function latestHoldMs(post: LivePost | null) {
   if (!post) return LATEST_REVEAL_MS;
   const crowd = post.candidates?.length ?? 0;
-  const scrollExtra = crowd >= 3 ? 5200 : 0;
+  const scrollExtra = crowd >= 3 ? 4000 : 0;
   if (!postIsDeclared(post)) return LATEST_REVEAL_MS + scrollExtra;
   const race = postRaceStatus(post);
   return LATEST_REVEAL_MS + winnerBurstMs(race.elected.length + race.tied.length) + scrollExtra;
 }
 
-type Phase = "post" | "people" | "bars" | "rank";
+type Phase = "post" | "people" | "bars" | "rank" | "color";
 
 function postCountSignature(post: LivePost) {
   const candidateVotes = (post.candidates ?? []).map((candidate) => `${candidate.id}:${candidate.votes}`).join(",");
@@ -53,7 +56,7 @@ function rankedIds(post: LivePost) {
 
 function orderCandidates(candidates: LiveCandidate[], ids: string[] | null) {
   if (!ids?.length) {
-    return rankByVotesThenName(candidates, (candidate) => candidate.votes, (candidate) => candidate.name);
+    return [...candidates].sort((a, b) => a.name.localeCompare(b.name, "en"));
   }
   const index = new Map(ids.map((id, order) => [id, order]));
   return [...candidates].sort((a, b) => {
@@ -107,14 +110,15 @@ export function useLatestCountUpdate(posts: LivePost[]) {
 
 export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdOrder?: string[] | null }) {
   const [phase, setPhase] = useState<Phase>("post");
+  const [burstReady, setBurstReady] = useState(false);
   const signature = post ? postCountSignature(post) : "";
   const candidateCount = post?.candidates?.length ?? 0;
   const compact = candidateCount >= 3;
   const dense = candidateCount >= 4;
   const listRef = useHallListScroll(
     post ? `${post.id}:${signature}` : "idle",
-    900,
-    Boolean(post) && phase !== "post",
+    1600,
+    Boolean(post) && (phase === "rank" || phase === "color"),
   );
 
   useEffect(() => {
@@ -123,12 +127,21 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
     const people = window.setTimeout(() => setPhase("people"), POST_MS);
     const bars = window.setTimeout(() => setPhase("bars"), POST_MS + PEOPLE_MS);
     const rank = window.setTimeout(() => setPhase("rank"), POST_MS + PEOPLE_MS + BARS_MS);
+    const color = window.setTimeout(() => setPhase("color"), POST_MS + PEOPLE_MS + BARS_MS + RANK_MS);
     return () => {
       window.clearTimeout(people);
       window.clearTimeout(bars);
       window.clearTimeout(rank);
+      window.clearTimeout(color);
     };
   }, [post?.id, signature]);
+
+  useEffect(() => {
+    setBurstReady(false);
+    if (!post || phase !== "color") return;
+    const timer = window.setTimeout(() => setBurstReady(true), 500);
+    return () => window.clearTimeout(timer);
+  }, [phase, post?.id, signature]);
 
   if (!post) {
     return (
@@ -150,7 +163,7 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
     (candidate) => candidate.name,
   );
   const intro = orderCandidates(post.candidates ?? [], holdOrder ?? null);
-  const rows = phase === "rank" ? ranked : intro;
+  const rows = phase === "rank" || phase === "color" ? ranked : intro;
   const maxVotes = ranked[0]?.votes ?? 0;
   const candidateVotes = ranked.reduce((sum, candidate) => sum + candidate.votes, 0);
   const invalidVotes = post.invalid_votes ?? 0;
@@ -158,8 +171,8 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
   const invalidSlots =
     post.invalid_slot_votes && post.invalid_slot_votes.length > 1 ? post.invalid_slot_votes : null;
   const showPeople = phase !== "post";
-  const showBars = phase === "bars" || phase === "rank";
-  const showRank = phase === "rank";
+  const showValues = phase === "bars" || phase === "rank" || phase === "color";
+  const showColor = phase === "color";
   const remainingSeats = Math.max(0, post.seats - race.elected.length);
   const headline = race.declared
     ? race.tied.length && !race.elected.length
@@ -239,7 +252,7 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
             </p>
           </div>
           <AnimatePresence>
-            {showRank ? (
+            {showColor ? (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -288,14 +301,14 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
                     badge={badge}
                     maxVotes={maxVotes}
                     share={percent(person.votes, countedMarks)}
-                    showBars={showBars}
-                    showRank={showRank}
+                    showValues={showValues}
+                    showColor={showColor}
                     compact={compact}
                     dense={dense}
                   />
                 );
               })}
-              {showBars && invalidSlots
+              {showValues && invalidSlots
                 ? invalidSlots.some((votes) => votes > 0)
                   ? invalidSlots.map((votes, slot) => (
                       <InvalidRevealRow
@@ -304,17 +317,21 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
                         votes={votes}
                         maxVotes={Math.max(maxVotes, ...invalidSlots)}
                         share={percent(votes, countedMarks)}
+                        showValues={showValues}
+                        showColor={showColor}
                         compact={compact}
                         dense={dense}
                       />
                     ))
                   : null
-                : showBars && invalidVotes > 0
+                : showValues && invalidVotes > 0
                   ? (
                       <InvalidRevealRow
                         votes={invalidVotes}
                         maxVotes={Math.max(maxVotes, invalidVotes)}
                         share={percent(invalidVotes, countedMarks)}
+                        showValues={showValues}
+                        showColor={showColor}
                         compact={compact}
                         dense={dense}
                       />
@@ -324,7 +341,7 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
           )}
         </div>
       </div>
-      {showRank && race.declared && (race.elected.length > 0 || race.tied.length > 0) ? (
+      {showColor && burstReady && race.declared && (race.elected.length > 0 || race.tied.length > 0) ? (
         <WinnerBurst
           postId={`${post.id}:${signature}`}
           postName={post.name}
@@ -361,8 +378,8 @@ function RevealRow({
   badge,
   maxVotes,
   share,
-  showBars,
-  showRank,
+  showValues,
+  showColor,
   compact,
   dense,
 }: {
@@ -372,8 +389,8 @@ function RevealRow({
   badge: "WON" | "TIE" | "LEAD" | "TRAIL";
   maxVotes: number;
   share: number;
-  showBars: boolean;
-  showRank: boolean;
+  showValues: boolean;
+  showColor: boolean;
   compact: boolean;
   dense: boolean;
 }) {
@@ -385,19 +402,29 @@ function RevealRow({
   const lead = badge === "LEAD";
   const tied = badge === "TIE";
   const photo = dense ? "size-8" : compact ? "size-10" : "size-14 sm:size-16";
+  const barScale = showValues ? width / 100 : 0;
+  const barClass =
+    showColor && (won || lead)
+      ? "bg-slate-900"
+      : showColor && tied
+        ? "bg-slate-500"
+        : "bg-slate-300";
 
   return (
     <motion.article
+      layout="position"
+      layoutId={`latest-row-${person.id}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
-        delay: showRank ? 0 : index * 0.05,
-        duration: 0.35,
+        layout: { duration: 0.95, ease: [0.22, 1, 0.32, 1] },
+        opacity: { delay: showValues ? 0 : index * 0.05, duration: 0.35 },
+        y: { delay: showValues ? 0 : index * 0.05, duration: 0.35 },
       }}
       className={cn(
         "flex items-center border-b border-slate-100",
         dense ? "gap-2 px-3 py-0.5 sm:px-4" : compact ? "gap-2 px-4 py-1 sm:px-5" : "gap-3 px-4 py-3 sm:gap-4 sm:px-6",
-        showRank && won ? "border-l-4 border-l-slate-900 bg-slate-50" : showRank && tied ? "border-l-4 border-l-slate-300" : "bg-white",
+        showColor && won ? "border-l-4 border-l-slate-900 bg-slate-50" : showColor && tied ? "border-l-4 border-l-slate-300" : "bg-white",
       )}
     >
       <span
@@ -406,7 +433,7 @@ function RevealRow({
           dense ? "size-6 text-[11px]" : compact ? "size-7 text-xs" : "size-9 text-sm",
         )}
       >
-        {showRank && maxVotes > 0 ? rank : "–"}
+        {showColor && maxVotes > 0 ? rank : "–"}
       </span>
       {person.photo_url ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -416,7 +443,8 @@ function RevealRow({
           className={cn(
             "shrink-0 rounded-full object-cover ring-2",
             photo,
-            showRank && (won || lead) ? "ring-slate-900" : "ring-slate-200",
+            showColor && (won || lead) ? "ring-slate-900" : "ring-slate-200",
+            showColor ? "" : "grayscale",
           )}
         />
       ) : (
@@ -425,9 +453,9 @@ function RevealRow({
             "flex shrink-0 items-center justify-center rounded-full font-black ring-2",
             photo,
             dense ? "text-[11px]" : compact ? "text-xs" : "text-lg",
-            showRank && (won || lead) ? "ring-slate-900" : "ring-slate-200",
+            showColor && (won || lead) ? "ring-slate-900" : "ring-slate-200",
           )}
-          style={{ background: theme.bg, color: theme.fg }}
+          style={showColor ? { background: theme.bg, color: theme.fg } : { background: "#e2e8f0", color: "#475569" }}
         >
           {initials(person.name)}
         </div>
@@ -442,7 +470,7 @@ function RevealRow({
           >
             {person.name}
           </p>
-          {showRank && badge !== "TRAIL" ? (
+          {showColor && badge !== "TRAIL" ? (
             <span
               className={cn(
                 "hidden shrink-0 rounded-sm border px-1.5 py-0.5 text-[9px] font-black tracking-[0.12em] sm:inline",
@@ -454,34 +482,41 @@ function RevealRow({
           ) : null}
         </div>
         <div className={cn("flex flex-wrap items-center gap-1.5", dense ? "mt-0" : "mt-0.5")}>
-          <span
-            className="rounded-sm px-1 py-px text-[9px] font-black uppercase tracking-wide"
-            style={{ background: theme.bg, color: theme.fg }}
-          >
-            {panel}
-          </span>
-          {classLabel && !compact ? (
+          {showColor ? (
+            <span
+              className="rounded-sm px-1 py-px text-[9px] font-black uppercase tracking-wide"
+              style={{ background: theme.bg, color: theme.fg }}
+            >
+              {panel}
+            </span>
+          ) : (
+            <span className="rounded-sm bg-slate-200 px-1 py-px text-[9px] font-black uppercase tracking-wide text-slate-500">
+              ···
+            </span>
+          )}
+          {classLabel && !compact && showColor ? (
             <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{classLabel}</span>
           ) : null}
         </div>
-        <div className={cn("overflow-hidden rounded-full bg-slate-100", dense ? "mt-0.5 h-1" : compact ? "mt-1 h-1" : "mt-2 h-2")}>
+        <div className={cn("origin-left overflow-hidden rounded-full bg-slate-100", dense ? "mt-0.5 h-1" : compact ? "mt-1 h-1" : "mt-2 h-2")}>
           <motion.div
-            className="h-full rounded-full bg-slate-800"
-            initial={{ width: 0 }}
-            animate={{ width: showBars ? `${width}%` : 0 }}
-            transition={{ type: "spring", stiffness: 55, damping: 18 }}
+            className={cn("h-full w-full origin-left rounded-full", barClass)}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: barScale }}
+            transition={showValues ? BAR_FILL : { duration: 0.3 }}
           />
         </div>
       </div>
-      <div className={cn("shrink-0 text-right", dense ? "w-12 sm:w-16" : compact ? "w-14 sm:w-20" : "w-16 sm:w-24", showBars ? "opacity-100" : "opacity-0")}>
+      <div className={cn("shrink-0 text-right", dense ? "w-12 sm:w-16" : compact ? "w-14 sm:w-20" : "w-16 sm:w-24", showValues ? "opacity-100" : "opacity-0")}>
         <LiveCounter
-          value={showBars ? person.votes : 0}
+          value={showValues ? person.votes : 0}
+          slow
           className={cn(
             "block font-black tabular-nums leading-none text-slate-950",
             dense ? "text-lg sm:text-xl" : compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-4xl",
           )}
         />
-        <p className="text-[10px] font-bold leading-none tabular-nums text-slate-500">{showBars ? `${share}%` : ""}</p>
+        <p className="text-[10px] font-bold leading-none tabular-nums text-slate-500">{showValues ? `${share}%` : ""}</p>
       </div>
     </motion.article>
   );
@@ -492,6 +527,8 @@ function InvalidRevealRow({
   maxVotes,
   share,
   label = "Invalid",
+  showValues,
+  showColor,
   compact,
   dense,
 }: {
@@ -499,24 +536,29 @@ function InvalidRevealRow({
   maxVotes: number;
   share: number;
   label?: string;
+  showValues: boolean;
+  showColor: boolean;
   compact: boolean;
   dense: boolean;
 }) {
   const width = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
+  const barScale = showValues ? width / 100 : 0;
 
   return (
     <motion.article
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "flex items-center border-t border-red-100 bg-red-50",
+        "flex items-center border-t",
+        showColor ? "border-red-100 bg-red-50" : "border-slate-100 bg-white",
         dense ? "gap-2 px-3 py-0.5 sm:px-4" : compact ? "gap-2 px-4 py-1 sm:px-5" : "gap-3 px-4 py-3 sm:gap-4 sm:px-6",
       )}
     >
       <span
         className={cn(
-          "flex shrink-0 items-center justify-center rounded-sm bg-red-100 font-black text-red-700",
+          "flex shrink-0 items-center justify-center rounded-sm font-black",
           dense ? "size-6 text-[8px]" : compact ? "size-7 text-[9px]" : "size-9 text-[10px]",
+          showColor ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500",
         )}
       >
         INV
@@ -524,30 +566,35 @@ function InvalidRevealRow({
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            "font-black leading-tight tracking-tight text-red-900",
+            "font-black leading-tight tracking-tight",
+            showColor ? "text-red-900" : "text-slate-700",
             dense ? "text-sm sm:text-base" : compact ? "text-base sm:text-lg" : "text-lg sm:text-2xl",
           )}
         >
           {label}
         </p>
-        <div className={cn("overflow-hidden rounded-full bg-red-100", dense ? "mt-0.5 h-1" : compact ? "mt-1 h-1" : "mt-2 h-2")}>
+        <div className={cn("origin-left overflow-hidden rounded-full", showColor ? "bg-red-100" : "bg-slate-100", dense ? "mt-0.5 h-1" : compact ? "mt-1 h-1" : "mt-2 h-2")}>
           <motion.div
-            className="h-full rounded-full bg-red-400"
-            initial={{ width: 0 }}
-            animate={{ width: `${width}%` }}
-            transition={{ type: "spring", stiffness: 55, damping: 18 }}
+            className={cn("h-full w-full origin-left rounded-full", showColor ? "bg-red-400" : "bg-slate-300")}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: barScale }}
+            transition={BAR_FILL}
           />
         </div>
       </div>
-      <div className={cn("shrink-0 text-right", dense ? "w-12 sm:w-16" : compact ? "w-14 sm:w-20" : "w-16 sm:w-24")}>
+      <div className={cn("shrink-0 text-right", dense ? "w-12 sm:w-16" : compact ? "w-14 sm:w-20" : "w-16 sm:w-24", showValues ? "opacity-100" : "opacity-0")}>
         <LiveCounter
-          value={votes}
+          value={showValues ? votes : 0}
+          slow
           className={cn(
-            "block font-black tabular-nums leading-none text-red-700",
+            "block font-black tabular-nums leading-none",
+            showColor ? "text-red-700" : "text-slate-950",
             dense ? "text-lg sm:text-xl" : compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-4xl",
           )}
         />
-        <p className="text-[10px] font-bold leading-none tabular-nums text-red-600">{share}%</p>
+        <p className={cn("text-[10px] font-bold leading-none tabular-nums", showColor ? "text-red-600" : "text-slate-500")}>
+          {showValues ? `${share}%` : ""}
+        </p>
       </div>
     </motion.article>
   );

@@ -146,6 +146,51 @@ export function postIsDeclared(post: { is_finalised?: boolean | null }) {
   return Boolean(post.is_finalised);
 }
 
+export function hallHasFirstCount(
+  posts: Array<{
+    total_verified_votes?: number | null;
+    invalid_votes?: number | null;
+    seats?: number | null;
+    candidates?: Array<{ votes?: number | null }>;
+  }>,
+) {
+  return posts.some(
+    (post) =>
+      liveCountedBallots({
+        total_verified_votes: post.total_verified_votes ?? 0,
+        invalid_votes: post.invalid_votes,
+        seats: post.seats,
+      }) > 0 || (post.candidates ?? []).some((candidate) => (candidate.votes ?? 0) > 0),
+  );
+}
+
+export function hallVotesPolled(
+  election: { total_votes_polled?: number | null } | null | undefined,
+  posts: Array<{ votes_polled?: number | null }>,
+) {
+  const overall = election?.total_votes_polled ?? 0;
+  if (overall > 0) return overall;
+  return posts.reduce((max, post) => Math.max(max, post.votes_polled ?? 0), 0);
+}
+
+export type PublicHallStage = "standby" | "poll" | "counting" | "live" | "final";
+
+export function publicHallStage(
+  election: { state?: string | null; poll_announced?: boolean | null } | null | undefined,
+  posts: Array<{
+    total_verified_votes?: number | null;
+    invalid_votes?: number | null;
+    seats?: number | null;
+    candidates?: Array<{ votes?: number | null }>;
+  }>,
+): PublicHallStage {
+  if (!election) return "standby";
+  if (election.state === "finalised") return "final";
+  if (election.state === "counting") return hallHasFirstCount(posts) ? "live" : "counting";
+  if (election.poll_announced) return "poll";
+  return "standby";
+}
+
 export function countedBallotsFromRounds(
   rounds: Array<{ id: string; status: string; invalid_votes?: number | null }>,
   entries: Array<{ round_id: string; votes: number }>,
