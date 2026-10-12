@@ -1,61 +1,82 @@
 "use client";
 
 import { toast } from "sonner";
+import { useRealtimeResults } from "@/hooks/use-realtime-results";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
 import { setPostDisplayRelease } from "@/lib/actions/display";
-import { hallDisplayLeaders, type HallDisplayPost } from "@/lib/hall-display";
+import {
+  hallDisplayFromLive,
+  hallDisplayLeaders,
+  hallNeedsForward,
+  type HallDisplayPost,
+} from "@/lib/hall-display";
+import { liveDisplaySettings } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { formatNumber, ordinalMark } from "@/lib/utils";
 
-export function HallDisplayScreen({
-  posts,
-  countingOpen,
-  schemaNeedsDisplayReleased,
-}: {
-  posts: HallDisplayPost[];
-  countingOpen: boolean;
-  schemaNeedsDisplayReleased: boolean;
-}) {
+export function HallDisplayScreen({ schemaNeedsDisplayReleased }: { schemaNeedsDisplayReleased: boolean }) {
+  const { data, error, loading, refresh } = useRealtimeResults({ control: true });
+  const election = data?.election ?? null;
+  const display = liveDisplaySettings(election);
+  const posts = (data?.posts ?? []).map((post) => hallDisplayFromLive(post, display.results_require_verification));
+  const countingOpen = election?.state === "counting" || election?.state === "finalised";
   const counted = posts.filter((post) => post.countedBallots > 0);
   const onHall = counted.filter((post) => post.displayReleased).length;
+  const waitingForward = posts.filter(hallNeedsForward).length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Hall display</h1>
         <p className="mt-1 text-muted-foreground">
-          Counted results stay off the public live board until you forward them. Forwarded posts then appear on the
-          hall and switch at the post rotate delay set in election settings.
+          Each counted round stays off the public live board until you forward it. This list updates as rounds are
+          counted. Forwarded posts switch at the post rotate delay set in election settings.
         </p>
       </div>
 
       {schemaNeedsDisplayReleased ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          Run <code className="font-medium">supabase/migrations/0021_display_released.sql</code> in the Supabase SQL
-          editor first so the hall waits for a forward.
+          Run <code className="font-medium">supabase/migrations/0021_display_released.sql</code>,{" "}
+          <code className="font-medium">0022_display_released_rounds.sql</code>, and{" "}
+          <code className="font-medium">0023_hall_forwarded_rounds_only.sql</code> in the Supabase SQL editor first so
+          each round waits for a forward.
         </p>
       ) : null}
 
-      {!countingOpen ? (
+      {!countingOpen && election ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           Open counting before forwarding results to the hall.
         </p>
       ) : null}
 
+      {error && !election ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-950">{error}</p>
+      ) : null}
+
       <p className="text-sm text-muted-foreground">
-        {counted.length} post{counted.length === 1 ? "" : "s"} counted so far
-        {counted.length > 0 ? ` · ${onHall} on the hall` : ""}.
+        {loading && !election
+          ? "Loading counted posts…"
+          : `${counted.length} post${counted.length === 1 ? "" : "s"} counted so far${
+              counted.length > 0 ? ` · ${onHall} on the hall` : ""
+            }${waitingForward > 0 ? ` · ${waitingForward} waiting to forward` : ""}.`}
       </p>
 
-      {posts.length === 0 ? (
+      {loading && posts.length === 0 ? (
+        <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Loading hall display…</p>
+      ) : posts.length === 0 ? (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">No posts configured yet.</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {posts.map((post) => (
-            <HallDisplayCard key={post.id} post={post} countingOpen={countingOpen} />
+            <HallDisplayCard
+              key={post.id}
+              post={post}
+              countingOpen={countingOpen}
+              onUpdated={() => void refresh(false)}
+            />
           ))}
         </div>
       )}
@@ -63,9 +84,18 @@ export function HallDisplayScreen({
   );
 }
 
-function HallDisplayCard({ post, countingOpen }: { post: HallDisplayPost; countingOpen: boolean }) {
+function HallDisplayCard({
+  post,
+  countingOpen,
+  onUpdated,
+}: {
+  post: HallDisplayPost;
+  countingOpen: boolean;
+  onUpdated: () => void;
+}) {
   const { isSubmitting, run } = useAntiDuplicate();
   const hasResult = post.countedBallots > 0;
+  const needsForward = hallNeedsForward(post);
   const { elected, tied } = hallDisplayLeaders(post);
   const electedIds = new Set(elected.map((row) => row.id));
   const tiedIds = new Set(tied.map((row) => row.id));
@@ -77,11 +107,18 @@ function HallDisplayCard({ post, countingOpen }: { post: HallDisplayPost; counti
       toast.error(result.error);
       return;
     }
-    toast.success(release ? `${post.name} forwarded to the hall.` : `${post.name} held from the hall.`);
+    toast.success(
+      release
+        ? post.displayReleased
+          ? `${post.name} round ${post.rounds} forwarded to the hall.`
+          : `${post.name} forwarded to the hall.`
+        : `${post.name} held from the hall.`,
+    );
+    onUpdated();
   }
 
   return (
-    <Card className={post.displayReleased ? "border-emerald-300 bg-emerald-50/60" : undefined}>
+    <Card className={needsForward ? "border-amber-300 bg-amber-50/50" : post.displayReleased ? "border-emerald-300 bg-emerald-50/60" : undefined}>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="text-base">{post.name}</CardTitle>
@@ -90,13 +127,14 @@ function HallDisplayCard({ post, countingOpen }: { post: HallDisplayPost; counti
               ? `${formatNumber(post.countedBallots)}/${formatNumber(post.votesPolled)} ballots counted`
               : `${formatNumber(post.countedBallots)} ballots counted`}
             {post.rounds > 0 ? ` · ${post.rounds} round${post.rounds === 1 ? "" : "s"}` : ""}
+            {post.displayReleased ? ` · ${formatNumber(post.releasedRounds)} on hall` : ""}
             {post.seats > 1 ? ` · ${post.seats} seats` : ""}
           </p>
         </div>
-        {post.displayReleased ? (
+        {needsForward ? (
+          <Badge variant="warning">{post.displayReleased ? "Update ready" : "Ready"}</Badge>
+        ) : post.displayReleased ? (
           <Badge variant="success">On hall</Badge>
-        ) : hasResult ? (
-          <Badge variant="warning">Ready</Badge>
         ) : (
           <Badge variant="outline">Not counted</Badge>
         )}
@@ -157,12 +195,11 @@ function HallDisplayCard({ post, countingOpen }: { post: HallDisplayPost; counti
               {isSubmitting ? <Spinner /> : null}
               Hold from display
             </Button>
-          ) : (
-            <Button type="button" disabled={!countingOpen || !hasResult || isSubmitting} onClick={() => void act(true)}>
-              {isSubmitting ? <Spinner /> : null}
-              Forward to display
-            </Button>
-          )}
+          ) : null}
+          <Button type="button" disabled={!countingOpen || !needsForward || isSubmitting} onClick={() => void act(true)}>
+            {isSubmitting ? <Spinner /> : null}
+            Forward to display
+          </Button>
         </div>
       </CardContent>
     </Card>

@@ -6,7 +6,7 @@ import type { LiveResults } from "@/lib/types";
 
 const POLL_MS = 2000;
 
-export function useRealtimeResults() {
+export function useRealtimeResults({ control = false }: { control?: boolean } = {}) {
   const [data, setData] = useState<LiveResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [flashKey, setFlashKey] = useState(0);
@@ -17,7 +17,9 @@ export function useRealtimeResults() {
   const fetchResults = useCallback(async (withFlash = false) => {
     try {
       const supabase = createClient();
-      const { data: payload, error: rpcError } = await supabase.rpc("get_live_results");
+      const { data: payload, error: rpcError } = await supabase.rpc("get_live_results", {
+        p_control: control,
+      });
       if (rpcError) throw rpcError;
       if (!payload || typeof payload !== "object") {
         throw new Error("Live results returned an empty payload.");
@@ -34,6 +36,8 @@ export function useRealtimeResults() {
         posts: (Array.isArray(results.posts) ? results.posts : []).map((post) => ({
           ...post,
           display_released: post.display_released !== false,
+          display_released_rounds:
+            typeof post.display_released_rounds === "number" ? post.display_released_rounds : undefined,
           candidates: Array.isArray(post.candidates)
             ? post.candidates.map((candidate) => ({
                 ...candidate,
@@ -55,7 +59,7 @@ export function useRealtimeResults() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [control]);
 
   useEffect(() => {
     const start = window.setTimeout(() => {

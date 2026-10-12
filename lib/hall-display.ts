@@ -1,6 +1,6 @@
 import { candidateClassLabel } from "@/lib/candidate-class";
-import type { Candidate, CountEntry, CountRound, Post } from "@/lib/types";
-import { countedBallotsFromRounds, rankByVotesThenName, resolveSeats } from "@/lib/utils";
+import type { Candidate, CountEntry, CountRound, LivePost, Post } from "@/lib/types";
+import { countedBallotsFromRounds, liveCountedBallots, rankByVotesThenName, resolveSeats } from "@/lib/utils";
 
 export type HallDisplayCandidate = {
   id: string;
@@ -19,6 +19,7 @@ export type HallDisplayPost = {
   displayOrder: number;
   displayReleased: boolean;
   displayReleasedAt: string | null;
+  releasedRounds: number;
   countedBallots: number;
   rounds: number;
   finalised: boolean;
@@ -105,6 +106,12 @@ export function buildHallDisplayPosts(
         displayOrder: post.display_order,
         displayReleased: Boolean(post.display_released),
         displayReleasedAt: post.display_released_at ?? null,
+        releasedRounds:
+          typeof post.display_released_rounds === "number"
+            ? post.display_released_rounds
+            : post.display_released
+              ? postRounds.length
+              : 0,
         countedBallots,
         rounds: postRounds.length,
         finalised: polled > 0 && countedBallots >= polled,
@@ -117,4 +124,56 @@ export function buildHallDisplayPosts(
 
 export function hallDisplayLeaders(post: HallDisplayPost) {
   return resolveSeats(post.candidates, post.seats, (candidate) => candidate.votes);
+}
+
+export function countedHallRounds(post: Pick<LivePost, "verified_rounds" | "pending_rounds">, requireVerification: boolean) {
+  return post.verified_rounds + (requireVerification ? 0 : post.pending_rounds);
+}
+
+export function hallDisplayFromLive(post: LivePost, requireVerification: boolean): HallDisplayPost {
+  const rounds = countedHallRounds(post, requireVerification);
+  const countedBallots = liveCountedBallots(post);
+  const releasedRounds =
+    typeof post.display_released_rounds === "number"
+      ? post.display_released_rounds
+      : post.display_released
+        ? rounds
+        : 0;
+
+  return {
+    id: post.id,
+    name: post.name,
+    seats: post.seats,
+    votesPolled: post.votes_polled ?? 0,
+    displayOrder: post.display_order,
+    displayReleased: Boolean(post.display_released),
+    displayReleasedAt: null,
+    releasedRounds,
+    countedBallots,
+    rounds,
+    finalised: post.is_finalised,
+    invalid: post.invalid_votes ?? 0,
+    invalidSlots:
+      post.invalid_slot_votes && post.invalid_slot_votes.length > 0
+        ? post.invalid_slot_votes
+        : post.seats > 1
+          ? Array.from({ length: post.seats }, (_, slot) => (slot === 0 ? post.invalid_votes ?? 0 : 0))
+          : [post.invalid_votes ?? 0],
+    candidates: rankByVotesThenName(
+      (post.candidates ?? []).map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        panel: candidate.panel_name || "Independent",
+        classLabel: candidateClassLabel(candidate.branch, candidate.year, candidate.semester),
+        votes: candidate.votes ?? 0,
+        slotVotes: Array.isArray(candidate.slot_votes) ? candidate.slot_votes : [],
+      })),
+      (row) => row.votes,
+      (row) => row.name,
+    ),
+  };
+}
+
+export function hallNeedsForward(post: HallDisplayPost) {
+  return post.countedBallots > 0 && (!post.displayReleased || post.rounds > post.releasedRounds);
 }

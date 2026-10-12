@@ -57,7 +57,9 @@ In the Supabase SQL editor, run in order:
 19. `supabase/migrations/0019_poll_announced.sql`
 20. `supabase/migrations/0020_returning_officer_name.sql`
 21. `supabase/migrations/0021_display_released.sql`
-22. `supabase/seed.sql` (optional starter posts)
+22. `supabase/migrations/0022_display_released_rounds.sql`
+23. `supabase/migrations/0023_hall_forwarded_rounds_only.sql`
+24. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 

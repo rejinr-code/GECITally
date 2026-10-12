@@ -27,7 +27,10 @@ export async function setPostDisplayRelease(postId: string, release: boolean) {
         error.message.includes("set_post_display_release") ||
         error.message.includes("schema cache")
       ) {
-        return { error: "Run supabase/migrations/0021_display_released.sql in the Supabase SQL editor first." };
+        return {
+          error:
+            "Run supabase/migrations/0021_display_released.sql and 0022_display_released_rounds.sql in the Supabase SQL editor first.",
+        };
       }
       return { error: error.message };
     }
