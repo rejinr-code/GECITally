@@ -363,7 +363,11 @@ export function ElectionSettings({ election }: { election: Election | null }) {
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
             These settings change how Counting Supervisors count and what the hall display board shows. Saving them
-            requires your admin password.
+            requires your admin password. Counted posts still need a forward from{" "}
+            <a className="font-medium text-primary hover:underline" href="/display-control">
+              Hall display
+            </a>{" "}
+            before they appear live.
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">

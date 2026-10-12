@@ -16,8 +16,10 @@ import {
   formatNumber,
   hallVotesPolled,
   initials,
+  isHallReleased,
   liveDisplaySettings,
   percent,
+  postIsDeclared,
   publicHallStage,
 } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -25,7 +27,6 @@ import {
   panelTheme,
   raceTickerItems,
   summarizePanels,
-  summarizeSeatRace,
   type PanelStanding,
   type TickerItem,
 } from "@/lib/results-studio";
@@ -113,13 +114,15 @@ export function ResultsBoard({
 
   const election = data?.election ?? null;
   const posts = useMemo(() => data?.posts ?? [], [data?.posts]);
-  const safeIndex = posts.length ? postIndex % posts.length : 0;
-  const current = posts[safeIndex];
-  const seatRace = useMemo(() => summarizeSeatRace(posts), [posts]);
-  const postProgress = percent(seatRace.declaredPosts, seatRace.postCount);
-  const panels = useMemo(() => summarizePanels(posts), [posts]);
-  const ticker = useMemo(() => raceTickerItems(posts), [posts]);
-  const { post: latestUpdate, holdOrder } = useLatestCountUpdate(posts);
+  const hallPosts = useMemo(() => posts.filter(isHallReleased), [posts]);
+  const safeIndex = hallPosts.length ? postIndex % hallPosts.length : 0;
+  const current = hallPosts[safeIndex];
+  const declaredPosts = posts.filter((post) => isHallReleased(post) && postIsDeclared(post)).length;
+  const postCount = posts.length;
+  const postProgress = percent(declaredPosts, postCount);
+  const panels = useMemo(() => summarizePanels(hallPosts), [hallPosts]);
+  const ticker = useMemo(() => raceTickerItems(hallPosts), [hallPosts]);
+  const { post: latestUpdate, holdOrder } = useLatestCountUpdate(hallPosts);
   const display = liveDisplaySettings(election);
   const stage = publicHallStage(election, posts);
   const votesPolled = hallVotesPolled(election, posts);
@@ -150,13 +153,13 @@ export function ResultsBoard({
   }, [latestKey, holdMs]);
 
   useEffect(() => {
-    if (posts.length <= 1 || revealHold) return;
+    if (hallPosts.length <= 1 || revealHold) return;
     const timer = window.setInterval(() => {
-      setPostIndex((index) => (index + 1) % posts.length);
+      setPostIndex((index) => (index + 1) % hallPosts.length);
       setCycle((value) => value + 1);
     }, rotateMs);
     return () => window.clearInterval(timer);
-  }, [posts.length, cycle, rotateMs, revealHold]);
+  }, [hallPosts.length, cycle, rotateMs, revealHold]);
 
   if (!ready || loading) {
     return (
@@ -233,14 +236,14 @@ export function ResultsBoard({
                 <div className="h-full rounded-full bg-slate-500" style={{ width: `${postProgress}%` }} />
               </div>
               <span className="text-[11px] font-bold tabular-nums text-slate-600">
-                {seatRace.declaredPosts} of {seatRace.postCount} posts decided
+                {declaredPosts} of {postCount} posts decided
               </span>
             </div>
           </div>
           <div className="hidden text-right sm:block">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Posts</p>
             <p className="text-2xl font-black tabular-nums leading-none text-slate-950">
-              {seatRace.declaredPosts}/{seatRace.postCount}
+              {declaredPosts}/{postCount}
             </p>
           </div>
           <div className="hidden text-right md:block">

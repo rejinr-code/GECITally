@@ -37,7 +37,7 @@ export function HallStageView({
             postCount={postCount}
           />
         ) : stage === "counting" ? (
-          <MessageCard kicker="COUNTING" title="Counting started" detail="Results will appear here after the first round." />
+          <MessageCard kicker="COUNTING" title="Counting started" detail="Results will appear here as they are announced." />
         ) : (
           <MessageCard kicker="RESULT" title="Counting completed" detail="Declared results follow." />
         )}

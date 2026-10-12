@@ -56,7 +56,8 @@ In the Supabase SQL editor, run in order:
 18. `supabase/migrations/0018_result_report_details.sql`
 19. `supabase/migrations/0019_poll_announced.sql`
 20. `supabase/migrations/0020_returning_officer_name.sql`
-21. `supabase/seed.sql` (optional starter posts)
+21. `supabase/migrations/0021_display_released.sql`
+22. `supabase/seed.sql` (optional starter posts)
 
 Then in **Database → Replication**, confirm `count_rounds` and `count_entries` are in the `supabase_realtime` publication (the migration adds them).
 
@@ -102,9 +103,10 @@ copy .env.example .env
 | Path | Role | Purpose |
 |---|---|---|
 | `/admin` | Admin | Panels, posts, candidates, people, count limit, live display, election state |
+| `/display-control` | Admin, Returning Officer | Counted post results; forward a post to the public hall live board |
 | `/admin/counting-report` | Admin | Printable round-wise counting sheets for each Counting Supervisor, with signature and Returning Officer countersignature |
 | `/staff` | Counting Supervisor | Enter per-candidate and invalid counts for assigned posts; open live results. Same desk is in the Flutter app (`mobile/`). |
-| `/supervisor` | Returning Officer | Verify or reject submitted rounds; open live results |
+| `/supervisor` | Returning Officer | Verify or reject submitted rounds; forward counted posts to the hall |
 | `/results/login` | Public results | Dedicated hall / public results login |
 | `/results` | Admin, Counting Supervisor, Returning Officer, Public results | Live animated results (login required) |
 
@@ -115,6 +117,6 @@ copy .env.example .env
 - A post with more than one seat has that many marks on each ballot (1st, 2nd, …). Counting records one vote per seat, with a separate invalid count for each mark. Live results show 1st and 2nd totals per candidate the same way. Single-seat posts stay one vote per ballot.
 - Duplicate submits are blocked in the UI (disabled button + ref guard) and in the database (`unique (post_id, staff_id, round_number)`).
 - Count rows are written only by `submit_count_round` / `review_count_round`. Counting Supervisors cannot insert or self-verify rounds through the API.
-- Verified rounds become part of the live tally. Admin can instead show pending rounds on the hall board immediately after a Counting Supervisor submits.
+- Verified rounds become part of the live tally. Admin can instead include pending rounds in that tally immediately after a Counting Supervisor submits. Either way, a post appears on the public hall only after Admin or the Returning Officer forwards it from Hall display.
 - When verified ballots for a post reach that post's votes polled, those totals are finalised and immutable.
 - `count_limit` is the number of ballots in each round. The last round may contain fewer.

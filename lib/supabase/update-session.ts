@@ -2,13 +2,16 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { canViewResults, roleHome } from "@/lib/utils";
 
-const PROTECTED_PREFIXES = ["/admin", "/staff", "/supervisor"];
+const PROTECTED_PREFIXES = ["/admin", "/staff", "/supervisor", "/display-control"];
 
-function requiredRole(pathname: string) {
-  if (pathname.startsWith("/admin")) return "admin";
-  if (pathname.startsWith("/staff")) return "staff";
-  if (pathname.startsWith("/supervisor")) return "supervisor";
-  return null;
+function canAccessPath(pathname: string, role: string | null | undefined) {
+  if (pathname.startsWith("/admin")) return role === "admin";
+  if (pathname.startsWith("/staff")) return role === "staff";
+  if (pathname.startsWith("/supervisor")) return role === "supervisor";
+  if (pathname === "/display-control" || pathname.startsWith("/display-control/")) {
+    return role === "admin" || role === "supervisor";
+  }
+  return false;
 }
 
 function isResultsLogin(pathname: string) {
@@ -102,14 +105,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && isProtected) {
-    const needed = requiredRole(pathname);
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile || profile.role !== needed) {
+    if (!canAccessPath(pathname, profile?.role)) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = roleHome(profile?.role);
       return NextResponse.redirect(redirectUrl);

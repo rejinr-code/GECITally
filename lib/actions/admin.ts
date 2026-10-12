@@ -642,6 +642,7 @@ export async function resetElectionCounts(electionId: string, password: string) 
     revalidatePath("/admin");
     revalidatePath("/staff");
     revalidatePath("/supervisor");
+    revalidatePath("/display-control");
     revalidatePath("/results");
     return { ok: true };
   } catch (error) {

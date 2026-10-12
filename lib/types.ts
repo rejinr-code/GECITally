@@ -38,6 +38,8 @@ export type Post = {
   seats: number;
   votes_polled: number;
   display_order: number;
+  display_released?: boolean;
+  display_released_at?: string | null;
 };
 
 export type Panel = {
@@ -109,6 +111,7 @@ export type LivePost = {
   seats: number;
   votes_polled: number;
   display_order: number;
+  display_released?: boolean;
   verified_rounds: number;
   pending_rounds: number;
   is_finalised: boolean;

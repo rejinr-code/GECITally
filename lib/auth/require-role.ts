@@ -52,5 +52,11 @@ export function safeNextPath(next: string, role: string | null | undefined) {
   if (role === "admin" && (path === "/admin" || path.startsWith("/admin/"))) return next;
   if (role === "staff" && (path === "/staff" || path.startsWith("/staff/"))) return next;
   if (role === "supervisor" && (path === "/supervisor" || path.startsWith("/supervisor/"))) return next;
+  if (
+    (role === "admin" || role === "supervisor") &&
+    (path === "/display-control" || path.startsWith("/display-control/"))
+  ) {
+    return next;
+  }
   return home;
 }

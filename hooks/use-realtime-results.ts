@@ -33,6 +33,7 @@ export function useRealtimeResults() {
           : null,
         posts: (Array.isArray(results.posts) ? results.posts : []).map((post) => ({
           ...post,
+          display_released: post.display_released !== false,
           candidates: Array.isArray(post.candidates)
             ? post.candidates.map((candidate) => ({
                 ...candidate,

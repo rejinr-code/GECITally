@@ -159,8 +159,13 @@ export function postIsDeclared(post: { is_finalised?: boolean | null }) {
   return Boolean(post.is_finalised);
 }
 
+export function isHallReleased(post: { display_released?: boolean | null }) {
+  return post.display_released !== false;
+}
+
 export function hallHasFirstCount(
   posts: Array<{
+    display_released?: boolean | null;
     total_verified_votes?: number | null;
     invalid_votes?: number | null;
     seats?: number | null;
@@ -169,11 +174,13 @@ export function hallHasFirstCount(
 ) {
   return posts.some(
     (post) =>
-      liveCountedBallots({
+      isHallReleased(post) &&
+      (liveCountedBallots({
         total_verified_votes: post.total_verified_votes ?? 0,
         invalid_votes: post.invalid_votes,
         seats: post.seats,
-      }) > 0 || (post.candidates ?? []).some((candidate) => (candidate.votes ?? 0) > 0),
+      }) > 0 ||
+        (post.candidates ?? []).some((candidate) => (candidate.votes ?? 0) > 0)),
   );
 }
 
@@ -191,6 +198,7 @@ export type PublicHallStage = "standby" | "poll" | "counting" | "live" | "final"
 export function publicHallStage(
   election: { state?: string | null; poll_announced?: boolean | null } | null | undefined,
   posts: Array<{
+    display_released?: boolean | null;
     total_verified_votes?: number | null;
     invalid_votes?: number | null;
     seats?: number | null;
