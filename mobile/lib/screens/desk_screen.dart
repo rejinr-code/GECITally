@@ -213,6 +213,7 @@ class _CountingView extends StatelessWidget {
   }
 
   Future<void> _openSubmit(BuildContext context) async {
+    desk.commitPending();
     if (!desk.canSubmit) return;
     await showDialog<void>(
       context: context,
@@ -358,7 +359,7 @@ class _CountingView extends StatelessWidget {
                                         return api.submitCountRound(
                                           postId: snapshot.post.id,
                                           entries: desk.submitEntries(),
-                                          invalidVotes: desk.invalidCount,
+                                          invalidVotes: desk.submitInvalidCount,
                                           invalidSlotVotes: desk.submitInvalidSlots(),
                                         );
                                       });
@@ -535,7 +536,6 @@ class _CountingView extends StatelessWidget {
                             Text(
                               desk.ballotReady
                                   ? "Vote on another candidate to replace the ${ordinalMark(desk.currentSlot)} mark. Vote on a marked candidate to change that mark instead."
-                                  : "Select the ${ordinalMark(desk.currentSlot)} candidate${desk.fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid ${ordinalMark(desk.currentSlot)} only if that mark is spoilt.",
                                   : "Select the ${ordinalMark(desk.currentSlot)} candidate${desk.fillingBallot ? " on this ballot" : " on the next ballot"}. Use Invalid ${ordinalMark(desk.currentSlot)} only if that mark is spoilt.",
                               style: TextStyle(
                                 color: theme.text,

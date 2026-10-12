@@ -124,15 +124,12 @@ class CountDeskController extends ChangeNotifier {
   bool get roundFull =>
       roundCap > 0 && committedTotal + pendingTotal >= roundCap;
 
-  bool get canSubmit =>
-      !blocked &&
-      !isSubmitting &&
-      pendingTotal == 0 &&
-      !fillingBallot &&
-      committedTotal > 0 &&
-      (exactRoundRequired
-          ? committedTotal == roundCap
-          : committedTotal <= roundSize);
+  bool get canSubmit {
+    if (blocked || isSubmitting || fillingBallot) return false;
+    final effective = committedTotal + pendingTotal;
+    if (effective <= 0) return false;
+    return exactRoundRequired ? effective == roundCap : effective <= roundSize;
+  }
 
   List<CountRow> get tableRows {
     return [
@@ -306,7 +303,7 @@ class CountDeskController extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool confirmQueued() {
+  bool commitPending({bool notify = true}) {
     if (!canConfirmQueued) return false;
     for (final entry in pendingAdds.entries) {
       if (entry.value > 0) {
@@ -324,27 +321,71 @@ class CountDeskController extends ChangeNotifier {
     pendingCandidateSlots = emptySlotMap();
     draft = emptyDraft();
     editSlot = null;
-    notifyListeners();
+    if (notify) notifyListeners();
     return true;
   }
+
+  bool confirmQueued() => commitPending();
 
   void recountRound() {
     isSubmitting = false;
     resetTally();
   }
 
+  Map<String, int> get _submitTally {
+    final tally = Map<String, int>.from(votes);
+    if (pendingTotal <= 0 || fillingBallot) return tally;
+    for (final entry in pendingAdds.entries) {
+      if (entry.value > 0) {
+        tally[entry.key] = (tally[entry.key] ?? 0) + entry.value;
+      }
+    }
+    return tally;
+  }
+
+  Map<String, List<int>> get _submitSlots {
+    final slots = {
+      for (final entry in candidateSlots.entries) entry.key: [...entry.value],
+    };
+    if (pendingTotal <= 0 || fillingBallot) return slots;
+    for (final entry in pendingCandidateSlots.entries) {
+      final current = slots[entry.key] ?? List<int>.filled(marksPerBallot, 0);
+      slots[entry.key] = [
+        for (var slot = 0; slot < marksPerBallot; slot += 1)
+          current[slot] + entry.value[slot],
+      ];
+    }
+    return slots;
+  }
+
   List<Map<String, dynamic>> submitEntries() {
+    final tally = _submitTally;
+    final slots = _submitSlots;
     return [
       for (final candidate in candidates)
         {
           "candidate_id": candidate.id,
-          "votes": votes[candidate.id] ?? 0,
-          if (multiSeat) "slot_votes": candidateSlots[candidate.id] ?? [],
+          "votes": tally[candidate.id] ?? 0,
+          if (multiSeat)
+            "slot_votes": slots[candidate.id] ?? List<int>.filled(marksPerBallot, 0),
         },
     ];
   }
 
-  List<int>? submitInvalidSlots() => multiSeat ? invalidSlots : null;
+  List<int>? submitInvalidSlots() {
+    if (!multiSeat) return null;
+    final tally = _submitTally;
+    return List<int>.generate(
+      marksPerBallot,
+      (slot) => tally[invalidSlotKey(slot)] ?? 0,
+    );
+  }
+
+  int get submitInvalidCount {
+    final slots = submitInvalidSlots();
+    if (slots == null) return _submitTally[invalidKey] ?? 0;
+    return slots.fold(0, (sum, value) => sum + value);
+  }
 
   bool voteDisabled(CountRow row) {
     final markedSlot = slotOnBallot(row.id);

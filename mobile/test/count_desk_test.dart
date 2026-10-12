@@ -132,4 +132,39 @@ void main() {
     expect(desk.votes["b"], 1);
     desk.dispose();
   });
+
+  test("multi-seat Confirm round includes a completed ballot that is not confirmed yet", () {
+    final desk = CountDeskController(
+      candidates: [
+        candidate("a", "Anu"),
+        candidate("b", "Binu"),
+        candidate("c", "Chitra"),
+      ],
+      seats: 2,
+      roundSize: 2,
+      votesPolled: 2,
+      countedBallots: 0,
+      countingOpen: true,
+      requireSupervisor: false,
+    );
+    desk.queueVote("a");
+    desk.queueVote("b");
+    desk.confirmQueued();
+    desk.queueVote("c");
+    desk.queueVote("a");
+    expect(desk.committedTotal, 1);
+    expect(desk.pendingTotal, 1);
+    expect(desk.canSubmit, isTrue);
+    expect(desk.submitEntries().singleWhere((entry) => entry["candidate_id"] == "c")["votes"], 1);
+    expect(
+      desk.submitEntries().singleWhere((entry) => entry["candidate_id"] == "a")["slot_votes"],
+      [1, 1],
+    );
+    expect(desk.submitInvalidSlots(), [0, 0]);
+    desk.commitPending();
+    expect(desk.committedTotal, 2);
+    expect(desk.pendingTotal, 0);
+    expect(desk.canSubmit, isTrue);
+    desk.dispose();
+  });
 }

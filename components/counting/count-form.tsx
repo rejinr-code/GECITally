@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
 import { submitCountRound } from "@/lib/actions/counting";
@@ -168,6 +169,7 @@ export function CountForm({
   const [submitOpen, setSubmitOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   const { isSubmitting, run } = useAntiDuplicate();
 
   const remaining = votesPolled > 0 ? Math.max(0, votesPolled - countedBallots) : null;
@@ -203,14 +205,15 @@ export function CountForm({
   const blocked = waitingOnSupervisor || !countingOpen || postComplete;
   const canCount = !blocked && !isSubmitting && (fillingBallot || committedTotal < roundCap);
   const canConfirmQueued = !blocked && !isSubmitting && pendingTotal > 0 && !fillingBallot;
+  const queuedBallots = fillingBallot ? 0 : pendingTotal;
   const roundFull = roundCap > 0 && committedTotal + pendingTotal >= roundCap;
+  const effectiveTotal = committedTotal + queuedBallots;
   const canSubmit =
     !blocked &&
     !isSubmitting &&
-    pendingTotal === 0 &&
     !fillingBallot &&
-    committedTotal > 0 &&
-    (exactRoundRequired ? committedTotal === roundCap : committedTotal <= roundSize);
+    effectiveTotal > 0 &&
+    (exactRoundRequired ? effectiveTotal === roundCap : effectiveTotal <= roundSize);
 
   function applyDraft(next: (string | null)[]) {
     setDraft(next);
@@ -280,9 +283,8 @@ export function CountForm({
     setError(null);
   }
 
-  function confirmQueued() {
-    if (!canConfirmQueued) return;
-    const nextTotal = committedTotal + pendingTotal;
+  function commitPending() {
+    if (!canConfirmQueued) return false;
     setVotes((current) => {
       const next = { ...current };
       for (const [id, extra] of Object.entries(pendingAdds)) {
@@ -303,13 +305,64 @@ export function CountForm({
     setPendingCandidateSlots(emptySlotMap(candidates, marksPerBallot));
     setDraft(emptyDraft(marksPerBallot));
     setEditSlot(null);
+    return true;
+  }
+
+  function confirmQueued() {
+    const nextTotal = committedTotal + pendingTotal;
+    if (!commitPending()) return;
     if (nextTotal >= roundCap && roundCap > 0) {
       setLimitOpen(true);
     }
   }
 
+  function roundPayload() {
+    const tally = { ...votes };
+    const slots = Object.fromEntries(
+      candidates.map((candidate) => [
+        candidate.id,
+        [...(candidateSlots[candidate.id] ?? Array.from({ length: marksPerBallot }, () => 0))],
+      ]),
+    ) as Record<string, number[]>;
+    if (queuedBallots > 0) {
+      for (const [id, extra] of Object.entries(pendingAdds)) {
+        if (extra > 0) tally[id] = (tally[id] ?? 0) + extra;
+      }
+      for (const [id, marks] of Object.entries(pendingCandidateSlots)) {
+        slots[id] = (slots[id] ?? Array.from({ length: marksPerBallot }, () => 0)).map(
+          (value, slot) => value + (marks[slot] ?? 0),
+        );
+      }
+    }
+    const invalids = multiSeat
+      ? Array.from({ length: marksPerBallot }, (_, slot) => tally[invalidSlotKey(slot)] ?? 0)
+      : [tally[INVALID_KEY] ?? 0];
+    return {
+      entries: candidates.map((candidate) => ({
+        candidate_id: candidate.id,
+        votes: tally[candidate.id] ?? 0,
+        ...(multiSeat
+          ? {
+              slot_votes: Array.from(
+                { length: marksPerBallot },
+                (_, slot) => Number(slots[candidate.id]?.[slot] ?? 0),
+              ),
+            }
+          : {}),
+      })),
+      invalidCount: invalids.reduce((sum, value) => sum + value, 0),
+      invalidSlots: invalids.map(Number),
+      ballots: marksToBallots(
+        candidates.reduce((sum, candidate) => sum + (tally[candidate.id] ?? 0), 0) +
+          invalids.reduce((sum, value) => sum + value, 0),
+        marksPerBallot,
+      ),
+    };
+  }
+
   function openSubmit() {
-    if (pendingTotal > 0 || fillingBallot || !canSubmit) return;
+    if (!canSubmit) return;
+    commitPending();
     setError(null);
     setLimitOpen(false);
     setSubmitOpen(true);
@@ -317,9 +370,9 @@ export function CountForm({
 
   function openSubmitFromLimit() {
     setLimitOpen(false);
-    if (pendingTotal > 0 || fillingBallot || !canSubmit) return;
-    setError(null);
-    setSubmitOpen(true);
+    window.setTimeout(() => {
+      openSubmit();
+    }, 60);
   }
 
   function recountRound() {
@@ -340,16 +393,12 @@ export function CountForm({
 
   async function confirmSubmit() {
     await run(async () => {
-      const slotVotes = multiSeat ? invalidSlots : undefined;
+      const payload = roundPayload();
       const result = await submitCountRound(
         postId,
-        rows.map((row) => ({
-          candidate_id: row.candidate.id,
-          votes: row.votes,
-          ...(multiSeat ? { slot_votes: candidateSlots[row.candidate.id] ?? [] } : {}),
-        })),
-        invalidCount,
-        slotVotes,
+        payload.entries,
+        payload.invalidCount,
+        multiSeat ? payload.invalidSlots : undefined,
       );
       if (result.error) {
         setError(result.error);
@@ -371,6 +420,7 @@ export function CountForm({
       setLastId(null);
       setLastSlot(null);
       setEditSlot(null);
+      router.refresh();
     });
   }
 
@@ -385,6 +435,7 @@ export function CountForm({
   }
 
   const lastVoteLabel = labelForId(lastId);
+  const submitPreview = roundPayload();
 
   const tableRows: Array<{
     id: string;
@@ -911,8 +962,8 @@ export function CountForm({
       </Dialog>
 
       <Dialog open={submitOpen} onOpenChange={(value) => !isSubmitting && setSubmitOpen(value)}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="flex max-h-[min(90dvh,42rem)] flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>
               Round {roundNumber} — {postName}
             </DialogTitle>
@@ -922,20 +973,22 @@ export function CountForm({
                 : "Confirm these sequential totals. This round will be accepted immediately."}
             </DialogDescription>
           </DialogHeader>
-          <ul className="space-y-2 text-sm">
-            {rows.map((row) => {
-              const classLabel = candidateClassLabel(row.candidate.branch, row.candidate.year, row.candidate.semester);
+          <ul className="min-h-0 max-h-[min(50dvh,18rem)] flex-1 space-y-2 overflow-y-auto pr-1 text-sm">
+            {candidates.map((candidate) => {
+              const classLabel = candidateClassLabel(candidate.branch, candidate.year, candidate.semester);
+              const entry = submitPreview.entries.find((item) => item.candidate_id === candidate.id);
+              const slots = entry?.slot_votes ?? [];
               return (
-                <li key={row.candidate.id} className="flex justify-between gap-4">
+                <li key={candidate.id} className="flex justify-between gap-4">
                   <span>
-                    {row.candidate.name}
+                    {candidate.name}
                     {classLabel ? <span className="ml-2 text-xs text-muted-foreground">{classLabel}</span> : null}
                   </span>
                   <span className="font-semibold tabular-nums">
-                    {formatNumber(row.votes)}
+                    {formatNumber(entry?.votes ?? 0)}
                     {multiSeat ? (
                       <span className="ml-2 text-xs font-medium text-muted-foreground">
-                        {(candidateSlots[row.candidate.id] ?? []).map((count, slot) => (
+                        {slots.map((count, slot) => (
                           <span key={slot}>
                             {slot > 0 ? " · " : null}
                             {ordinalMark(slot)} {formatNumber(count)}
@@ -948,7 +1001,7 @@ export function CountForm({
               );
             })}
             {multiSeat
-              ? invalidSlots.map((count, slot) => (
+              ? submitPreview.invalidSlots.map((count, slot) => (
                   <li key={invalidSlotKey(slot)} className="flex justify-between gap-4 text-red-700">
                     <span>Invalid {ordinalMark(slot)}</span>
                     <span className="font-semibold tabular-nums">{formatNumber(count)}</span>
@@ -957,13 +1010,15 @@ export function CountForm({
               : (
                   <li className="flex justify-between gap-4 text-red-700">
                     <span>Invalid</span>
-                    <span className="font-semibold tabular-nums">{formatNumber(invalidCount)}</span>
+                    <span className="font-semibold tabular-nums">{formatNumber(submitPreview.invalidCount)}</span>
                   </li>
                 )}
           </ul>
-          <p className="border-t pt-3 text-sm font-semibold">Total ballots: {formatNumber(committedTotal)}. Confirm?</p>
-          {error && <p className="text-sm text-red-700">{error}</p>}
-          <DialogFooter className="flex-wrap">
+          <p className="shrink-0 border-t pt-3 text-sm font-semibold">
+            Total ballots: {formatNumber(submitPreview.ballots)}. Confirm?
+          </p>
+          {error && <p className="shrink-0 text-sm text-red-700">{error}</p>}
+          <DialogFooter className="mt-4 shrink-0 flex-wrap">
             <Button type="button" variant="outline" disabled={isSubmitting} onClick={recountRound}>
               Recount
             </Button>
