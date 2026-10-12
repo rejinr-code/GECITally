@@ -126,6 +126,10 @@ export function ResultsBoard({
   const display = liveDisplaySettings(election);
   const stage = publicHallStage(election, posts);
   const votesPolled = hallVotesPolled(election, posts);
+  const announcing = revealHold && Boolean(latestUpdate);
+  const featured = (announcing ? latestUpdate : current) ?? null;
+  const hallPostsRef = useRef(hallPosts);
+  hallPostsRef.current = hallPosts;
   const [finalSplash, setFinalSplash] = useState(true);
 
   useEffect(() => {
@@ -147,15 +151,21 @@ export function ResultsBoard({
       setRevealHold(false);
       return;
     }
+    const announcedId = latestKey.split(":")[0];
+    setPostIndex((index) => {
+      const next = hallPostsRef.current.findIndex((post) => post.id === announcedId);
+      return next >= 0 ? next : index;
+    });
     setRevealHold(true);
     const timer = window.setTimeout(() => setRevealHold(false), holdMs);
     return () => window.clearTimeout(timer);
   }, [latestKey, holdMs]);
 
   useEffect(() => {
-    if (hallPosts.length <= 1 || revealHold) return;
+    const count = hallPosts.length;
+    if (count <= 1 || revealHold) return;
     const timer = window.setInterval(() => {
-      setPostIndex((index) => (index + 1) % hallPosts.length);
+      setPostIndex((index) => (index + 1) % count);
       setCycle((value) => value + 1);
     }, rotateMs);
     return () => window.clearInterval(timer);
@@ -282,7 +292,13 @@ export function ResultsBoard({
         ) : (
           <>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <LatestResult post={latestUpdate} holdOrder={holdOrder} />
+          <LatestResult
+            key={`${featured?.id ?? "idle"}:${cycle}`}
+            post={featured}
+            holdOrder={announcing ? holdOrder : null}
+            settled={!announcing}
+            sequence={hallPosts.length > 1 ? `${safeIndex + 1} / ${hallPosts.length}` : undefined}
+          />
         </main>
         <aside className="hidden min-h-0 w-[22rem] shrink-0 flex-col lg:flex xl:w-[26rem]">
           {current ? (
@@ -312,7 +328,7 @@ export function ResultsBoard({
         <div className="flex h-full w-16 flex-col items-center justify-center bg-[#c9a227] px-2 text-center text-[11px] font-black tracking-[0.18em] text-slate-950">
           TALLY
         </div>
-        {posts.length > 0 ? (
+        {hallPosts.length > 0 ? (
           <div key={cycle} className="relative h-full w-14 overflow-hidden bg-[#ead48a]">
             <div
               className="h-full bg-[#8a6b12]"

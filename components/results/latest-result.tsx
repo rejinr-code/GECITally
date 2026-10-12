@@ -75,13 +75,13 @@ export function useLatestCountUpdate(posts: LivePost[]) {
 
   useEffect(() => {
     const signatures = new Map(posts.map((post) => [post.id, postCountSignature(post)]));
-    const changed = posts.filter((post) => {
-      const previous = prevSigRef.current.get(post.id);
-      return previous !== undefined && previous !== signatures.get(post.id);
-    });
+    const addedOrUpdated = posts.filter((post) => prevSigRef.current.get(post.id) !== signatures.get(post.id));
+    const isInitial = prevSigRef.current.size === 0;
 
-    if (changed.length) {
-      const newest = [...changed].sort((a, b) => postActivity(b) - postActivity(a) || a.name.localeCompare(b.name, "en"));
+    if (!isInitial && addedOrUpdated.length) {
+      const newest = [...addedOrUpdated].sort(
+        (a, b) => postActivity(b) - postActivity(a) || a.name.localeCompare(b.name, "en"),
+      );
       setId(newest[0].id);
       setHoldOrder(prevRankRef.current.get(newest[0].id) ?? null);
     } else if (!id) {
@@ -108,9 +108,21 @@ export function useLatestCountUpdate(posts: LivePost[]) {
   return { post: posts.find((post) => post.id === id) ?? null, holdOrder };
 }
 
-export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdOrder?: string[] | null }) {
+export function LatestResult({
+  post,
+  holdOrder,
+  settled = false,
+  sequence,
+}: {
+  post: LivePost | null;
+  holdOrder?: string[] | null;
+  settled?: boolean;
+  sequence?: string;
+}) {
   const [phase, setPhase] = useState<Phase>("post");
   const [burstReady, setBurstReady] = useState(false);
+  const settledRef = useRef(settled);
+  settledRef.current = settled;
   const signature = post ? postCountSignature(post) : "";
   const candidateCount = post?.candidates?.length ?? 0;
   const compact = candidateCount >= 3;
@@ -124,6 +136,10 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
   useEffect(() => {
     if (!post) return;
     setPhase("post");
+    if (settledRef.current) {
+      const color = window.setTimeout(() => setPhase("color"), POST_MS);
+      return () => window.clearTimeout(color);
+    }
     const people = window.setTimeout(() => setPhase("people"), POST_MS);
     const bars = window.setTimeout(() => setPhase("bars"), POST_MS + PEOPLE_MS);
     const rank = window.setTimeout(() => setPhase("rank"), POST_MS + PEOPLE_MS + BARS_MS);
@@ -138,10 +154,10 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
 
   useEffect(() => {
     setBurstReady(false);
-    if (!post || phase !== "color") return;
+    if (settled || !post || phase !== "color") return;
     const timer = window.setTimeout(() => setBurstReady(true), 500);
     return () => window.clearTimeout(timer);
-  }, [phase, post?.id, signature]);
+  }, [phase, post?.id, signature, settled]);
 
   if (!post) {
     return (
@@ -188,53 +204,52 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
 
   return (
     <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <LatestHeader counted={countedBallots} polled={votesPolled} />
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <AnimatePresence>
-          {phase === "post" ? (
-            <motion.div
-              key={`spotlight-${post.id}-${signature}`}
-              className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950 px-8 text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.7 }}
+      <AnimatePresence>
+        {phase === "post" ? (
+          <motion.div
+            key={`spotlight-${post.id}`}
+            className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950 px-8 text-center"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.45 }}
+          >
+            <motion.p
+              className="text-[11px] font-black tracking-[0.42em] text-red-400"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: [0.35, 1, 0.45, 1], y: 0 }}
+              transition={{ duration: 2.6, repeat: Infinity, repeatType: "mirror" }}
             >
-              <motion.p
-                className="text-[11px] font-black tracking-[0.42em] text-red-400"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: [0.35, 1, 0.45, 1], y: 0 }}
-                transition={{ duration: 2.6, repeat: Infinity, repeatType: "mirror" }}
-              >
-                LATEST UPDATE
-              </motion.p>
-              <motion.h2
-                className="mt-4 max-w-4xl text-3xl font-black uppercase leading-tight tracking-tight text-white sm:text-5xl md:text-6xl"
-                initial={{ opacity: 0.25, scale: 0.94, filter: "blur(8px)" }}
-                animate={{
-                  opacity: [0.35, 1, 0.55, 1],
-                  scale: [0.96, 1.03, 1],
-                  filter: ["blur(8px)", "blur(0px)", "blur(2px)", "blur(0px)"],
-                }}
-                transition={{ duration: 2.8, ease: "easeInOut" }}
-              >
-                {post.name}
-              </motion.h2>
-              <motion.p
-                className="mt-5 text-xs font-bold uppercase tracking-[0.28em] text-slate-400"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: [0, 0.9, 0.35, 0.9] }}
-                transition={{ duration: 2.4, delay: 0.4, repeat: Infinity, repeatType: "mirror" }}
-              >
-                {post.seats} seat{post.seats > 1 ? "s" : ""}
-                {" · "}
-                {formatNumber(countedBallots)} counted
-                {votesPolled > 0 ? ` · ${formatNumber(votesPolled)} polled` : ""}
-              </motion.p>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
+              LATEST UPDATE
+            </motion.p>
+            <motion.h2
+              className="mt-4 max-w-4xl text-3xl font-black uppercase leading-tight tracking-tight text-white sm:text-5xl md:text-6xl"
+              initial={{ opacity: 0.25, scale: 0.94, filter: "blur(8px)" }}
+              animate={{
+                opacity: [0.35, 1, 0.55, 1],
+                scale: [0.96, 1.03, 1],
+                filter: ["blur(8px)", "blur(0px)", "blur(2px)", "blur(0px)"],
+              }}
+              transition={{ duration: 2.8, ease: "easeInOut" }}
+            >
+              {post.name}
+            </motion.h2>
+            <motion.p
+              className="mt-5 text-xs font-bold uppercase tracking-[0.28em] text-slate-400"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.9, 0.35, 0.9] }}
+              transition={{ duration: 2.4, delay: 0.4, repeat: Infinity, repeatType: "mirror" }}
+            >
+              {post.seats} seat{post.seats > 1 ? "s" : ""}
+              {" · "}
+              {formatNumber(countedBallots)} counted
+              {votesPolled > 0 ? ` · ${formatNumber(votesPolled)} polled` : ""}
+            </motion.p>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <LatestHeader counted={countedBallots} polled={votesPolled} sequence={sequence} />
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <div className={cn("flex shrink-0 items-end justify-between gap-4 border-b border-slate-100 px-4 sm:px-5", dense ? "py-1.5" : compact ? "py-2" : "py-3")}>
           <div className="min-w-0">
             <p className="text-[10px] font-black tracking-[0.28em] text-slate-400">POST</p>
@@ -354,12 +369,13 @@ export function LatestResult({ post, holdOrder }: { post: LivePost | null; holdO
   );
 }
 
-function LatestHeader({ counted, polled }: { counted?: number; polled?: number }) {
+function LatestHeader({ counted, polled, sequence }: { counted?: number; polled?: number; sequence?: string }) {
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 bg-red-600 px-4 py-2 text-white">
       <span className="flex min-w-0 items-center gap-1.5">
         <span className="size-2 shrink-0 rounded-full bg-white" style={{ animation: "livePulse 1.4s ease-out infinite" }} />
         <p className="text-[11px] font-black tracking-[0.28em]">LATEST UPDATE</p>
+        {sequence ? <p className="text-[11px] font-black tabular-nums tracking-[0.14em] text-white/80">{sequence}</p> : null}
       </span>
       {counted != null ? (
         <p className="ml-auto text-[11px] font-black tabular-nums tracking-[0.14em]">

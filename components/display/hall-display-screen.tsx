@@ -27,8 +27,8 @@ export function HallDisplayScreen({
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Hall display</h1>
         <p className="mt-1 text-muted-foreground">
-          Counted results stay off the public live board until you forward them. The hall then shows that post with
-          its current totals.
+          Counted results stay off the public live board until you forward them. Forwarded posts then appear on the
+          hall and switch at the post rotate delay set in election settings.
         </p>
       </div>
 
