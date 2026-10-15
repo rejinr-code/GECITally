@@ -47,9 +47,11 @@ function CreditCopy({ light }: { light?: boolean }) {
 export function MulearnCredit({
   light = false,
   compact = false,
+  className,
 }: {
   light?: boolean;
   compact?: boolean;
+  className?: string;
 }) {
   if (compact) {
     return (
@@ -81,6 +83,7 @@ export function MulearnCredit({
         light
           ? "border-amber-300/25 bg-gradient-to-r from-white/12 to-transparent"
           : "border-emerald-200/90 bg-white shadow-[0_10px_28px_-18px_rgba(4,120,87,0.55)]",
+        className,
       )}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}

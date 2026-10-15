@@ -167,4 +167,66 @@ void main() {
     expect(desk.canSubmit, isTrue);
     desk.dispose();
   });
+
+  test("last multi-seat round keeps an unconfirmed ballot in the submit payload", () {
+    final desk = CountDeskController(
+      candidates: [
+        candidate("a", "Anu"),
+        candidate("b", "Binu"),
+        candidate("c", "Chitra"),
+      ],
+      seats: 2,
+      roundSize: 20,
+      votesPolled: 43,
+      countedBallots: 40,
+      countingOpen: true,
+      requireSupervisor: false,
+    );
+    expect(desk.isLastRound, isTrue);
+    expect(desk.roundCap, 3);
+    desk.queueVote("a");
+    desk.queueVote("b");
+    desk.confirmQueued();
+    desk.queueVote("a");
+    desk.queueVote("c");
+    desk.confirmQueued();
+    desk.queueVote("b");
+    desk.queueVote("c");
+    expect(desk.committedTotal, 2);
+    expect(desk.pendingTotal, 1);
+    expect(desk.canSubmit, isTrue);
+    expect(desk.submitEntries().singleWhere((entry) => entry["candidate_id"] == "b")["votes"], 2);
+    expect(
+      desk.submitEntries().singleWhere((entry) => entry["candidate_id"] == "c")["slot_votes"],
+      [0, 2],
+    );
+    final restored = CountDeskController(
+      candidates: desk.candidates,
+      seats: 2,
+      roundSize: 20,
+      votesPolled: 43,
+      countedBallots: 40,
+      countingOpen: true,
+      requireSupervisor: false,
+    );
+    restored.applyRestored(
+      restoredVotes: Map<String, int>.from(desk.votes),
+      restoredPending: Map<String, int>.from(desk.pendingAdds),
+      restoredSlots: {
+        for (final entry in desk.candidateSlots.entries) entry.key: [...entry.value],
+      },
+      restoredPendingSlots: {
+        for (final entry in desk.pendingCandidateSlots.entries) entry.key: [...entry.value],
+      },
+      restoredDraft: [...desk.draft],
+      restoredLastId: desk.lastId,
+      restoredLastSlot: desk.lastSlot,
+    );
+    expect(restored.committedTotal, 2);
+    expect(restored.pendingTotal, 1);
+    expect(restored.canSubmit, isTrue);
+    expect(restored.submitEntries().singleWhere((entry) => entry["candidate_id"] == "b")["votes"], 2);
+    desk.dispose();
+    restored.dispose();
+  });
 }

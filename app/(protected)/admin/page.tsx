@@ -7,7 +7,7 @@ import { liveDisplaySettings } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  await requireRole("admin");
+  const { user } = await requireRole("admin");
   const admin = createAdminClient();
 
   const { data: election } = await admin
@@ -68,8 +68,17 @@ export default async function AdminPage() {
     candidates: ((candidates ?? []) as Candidate[]).filter((candidate) => candidate.post_id === post.id),
   }));
 
+  let emailById = new Map<string, string | null>();
+  try {
+    const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    emailById = new Map((authUsers?.users ?? []).map((authUser) => [authUser.id, authUser.email ?? null]));
+  } catch {
+    emailById = new Map();
+  }
+
   const peopleWithAssignments = ((peopleResult.data ?? []) as Profile[]).map((person) => ({
     ...person,
+    email: emailById.get(person.id) ?? null,
     assigned_post_ids: (assignmentsResult.data ?? [])
       .filter((assignment) => assignment.staff_id === person.id)
       .map((assignment) => assignment.post_id),
@@ -96,6 +105,7 @@ export default async function AdminPage() {
         panels={panels}
         posts={postsWithCandidates}
         people={peopleWithAssignments}
+        currentUserId={user.id}
         countingStarted={election?.state !== "setup"}
         schemaNeedsUpdate={schemaNeedsUpdate}
         schemaNeedsCandidateClass={schemaNeedsCandidateClass}

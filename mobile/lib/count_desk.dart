@@ -131,6 +131,9 @@ class CountDeskController extends ChangeNotifier {
     return exactRoundRequired ? effective == roundCap : effective <= roundSize;
   }
 
+  bool get hasUnsavedBallots =>
+      committedTotal > 0 || pendingTotal > 0 || fillingBallot;
+
   List<CountRow> get tableRows {
     return [
       ...candidates.map((candidate) {
@@ -330,6 +333,47 @@ class CountDeskController extends ChangeNotifier {
   void recountRound() {
     isSubmitting = false;
     resetTally();
+  }
+
+  void applyRestored({
+    required Map<String, int> restoredVotes,
+    required Map<String, int> restoredPending,
+    required Map<String, List<int>> restoredSlots,
+    required Map<String, List<int>> restoredPendingSlots,
+    required List<String?> restoredDraft,
+    String? restoredLastId,
+    int? restoredLastSlot,
+  }) {
+    votes = emptyTally();
+    for (final entry in restoredVotes.entries) {
+      if (votes.containsKey(entry.key)) votes[entry.key] = entry.value;
+    }
+    pendingAdds = Map<String, int>.from(restoredPending);
+    candidateSlots = emptySlotMap();
+    for (final entry in restoredSlots.entries) {
+      if (!candidateSlots.containsKey(entry.key)) continue;
+      candidateSlots[entry.key] = [
+        for (var slot = 0; slot < marksPerBallot; slot += 1)
+          slot < entry.value.length ? entry.value[slot] : 0,
+      ];
+    }
+    pendingCandidateSlots = emptySlotMap();
+    for (final entry in restoredPendingSlots.entries) {
+      if (!pendingCandidateSlots.containsKey(entry.key)) continue;
+      pendingCandidateSlots[entry.key] = [
+        for (var slot = 0; slot < marksPerBallot; slot += 1)
+          slot < entry.value.length ? entry.value[slot] : 0,
+      ];
+    }
+    draft = [
+      for (var slot = 0; slot < marksPerBallot; slot += 1)
+        slot < restoredDraft.length ? restoredDraft[slot] : null,
+    ];
+    lastId = restoredLastId;
+    lastSlot = restoredLastSlot;
+    editSlot = null;
+    error = null;
+    notifyListeners();
   }
 
   Map<String, int> get _submitTally {

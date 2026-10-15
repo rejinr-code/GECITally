@@ -87,10 +87,15 @@ export async function submitCountRound(
       return { error: message };
     }
 
+    const round = data as { id?: string; round_number?: number } | null;
+    if (!round || typeof round !== "object" || !round.id) {
+      return { error: "The round was not saved. Submit again." };
+    }
+
     revalidatePath("/staff");
     revalidatePath(`/staff/${postId}`);
     revalidatePath("/supervisor");
-    return { ok: true, round: data };
+    return { ok: true, round };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not submit round." };
   }

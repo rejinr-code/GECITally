@@ -188,7 +188,7 @@ class TallyApi {
     List<int>? invalidSlotVotes,
   }) async {
     try {
-      await client.rpc(
+      final data = await client.rpc(
         "submit_count_round",
         params: {
           "p_post_id": postId,
@@ -197,6 +197,9 @@ class TallyApi {
           if (invalidSlotVotes != null) "p_invalid_slot_votes": invalidSlotVotes,
         },
       );
+      if (data is! Map || data["id"] == null) {
+        return "The round was not saved. Submit again.";
+      }
       return null;
     } on PostgrestException catch (error) {
       return _roundError(error.message);

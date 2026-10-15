@@ -504,59 +504,147 @@ export async function updateStaffAssignments(staffId: string, postIds: string[],
 }
 
 export async function updateProfileRole(profileId: string, role: UserRole, password: string) {
+  return updateAccount(profileId, { role }, password);
+}
+
+export async function updateAccount(
+  profileId: string,
+  payload: {
+    full_name?: string;
+    role?: UserRole;
+    password?: string;
+    postIds?: string[];
+  },
+  adminPassword: string,
+) {
   try {
+    const confirmed = await confirmAdminPassword(adminPassword);
+    if ("error" in confirmed) return { error: confirmed.error };
+    const { user } = await requireAdmin();
+
+    const { data: profile, error: profileError } = await confirmed.supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .eq("id", profileId)
+      .maybeSingle();
+    if (profileError) return { error: profileError.message };
+    if (!profile) return { error: "Account not found." };
+
+    const fullName = payload.full_name?.trim() ?? profile.full_name;
+    const role = payload.role ?? (profile.role as UserRole);
+    const newPassword = payload.password?.trim() ?? "";
+
+    if (!fullName) return { error: "Name is required." };
     if (!["admin", "staff", "supervisor", "display"].includes(role)) {
       return { error: "Invalid role." };
     }
-    const confirmed = await confirmAdminPassword(password);
-    if ("error" in confirmed) return { error: confirmed.error };
-    const { error } = await confirmed.supabase.from("profiles").update({ role }).eq("id", profileId);
-    if (error) return { error: error.message };
+    if (newPassword && newPassword.length < 8) {
+      return { error: "Password must be at least 8 characters." };
+    }
+    if (profileId === user.id && role !== profile.role) {
+      return { error: "You cannot change your own role." };
+    }
+    if (profile.role === "admin" && role !== "admin") {
+      const { count, error: adminCountError } = await confirmed.supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "admin");
+      if (adminCountError) return { error: adminCountError.message };
+      if ((count ?? 0) <= 1) return { error: "Keep at least one admin account." };
+    }
+
+    const admin = createAdminClient();
+    if (newPassword) {
+      const { error: passwordError } = await admin.auth.admin.updateUserById(profileId, {
+        password: newPassword,
+      });
+      if (passwordError) {
+        return { error: passwordError.message || "Could not set the new password." };
+      }
+    }
+
+    const { error: updateError } = await confirmed.supabase
+      .from("profiles")
+      .update({ full_name: fullName, role })
+      .eq("id", profileId);
+    if (updateError) return { error: updateError.message };
+
+    const { error: authError } = await admin.auth.admin.updateUserById(profileId, {
+      user_metadata: { full_name: fullName, role },
+    });
+    if (authError) return { error: authError.message };
+
+    if (role !== "staff" || payload.postIds) {
+      const { error: clearError } = await confirmed.supabase.from("staff_assignments").delete().eq("staff_id", profileId);
+      if (clearError) return { error: clearError.message };
+    }
+    if (role === "staff" && payload.postIds?.length) {
+      const { error: assignError } = await confirmed.supabase.from("staff_assignments").insert(
+        payload.postIds.map((post_id) => ({ staff_id: profileId, post_id })),
+      );
+      if (assignError) return { error: assignError.message };
+    }
+
     revalidatePath("/admin");
-    return { ok: true };
+    revalidatePath("/staff");
+    revalidatePath("/supervisor");
+    revalidatePath("/display-control");
+    return { ok: true, passwordChanged: Boolean(newPassword) };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not update role." };
+    return { error: error instanceof Error ? error.message : "Could not update account." };
   }
 }
 
 export async function deleteStaffAccount(staffId: string, password: string) {
+  return deleteAccount(staffId, password);
+}
+
+export async function deleteAccount(profileId: string, password: string) {
   try {
     const confirmed = await confirmAdminPassword(password);
     if ("error" in confirmed) return { error: confirmed.error };
-    const { supabase, user } = await requireAdmin();
-    if (staffId === user.id) {
+    const { user } = await requireAdmin();
+    if (profileId === user.id) {
       return { error: "You cannot delete your own account." };
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await confirmed.supabase
       .from("profiles")
       .select("id, role")
-      .eq("id", staffId)
+      .eq("id", profileId)
       .maybeSingle();
     if (profileError) return { error: profileError.message };
     if (!profile) return { error: "Account not found." };
-    if (profile.role !== "staff") {
-      return { error: "Only Counting Supervisors can be deleted from this list." };
+
+    if (profile.role === "admin") {
+      const { count, error: adminCountError } = await confirmed.supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "admin");
+      if (adminCountError) return { error: adminCountError.message };
+      if ((count ?? 0) <= 1) return { error: "Keep at least one admin account." };
     }
 
-    const { count, error: roundsError } = await supabase
+    const { count, error: roundsError } = await confirmed.supabase
       .from("count_rounds")
       .select("id", { count: "exact", head: true })
-      .eq("staff_id", staffId);
+      .eq("staff_id", profileId);
     if (roundsError) return { error: roundsError.message };
     if ((count ?? 0) > 0) {
       return {
         error:
-          "This Counting Supervisor has submitted rounds and cannot be deleted. Reset counts first if you need to remove them.",
+          "This account has submitted count rounds and cannot be deleted. Reset counts first if you need to remove them.",
       };
     }
 
     const admin = createAdminClient();
-    const { error } = await admin.auth.admin.deleteUser(staffId);
+    const { error } = await admin.auth.admin.deleteUser(profileId);
     if (error) return { error: error.message };
 
     revalidatePath("/admin");
     revalidatePath("/staff");
+    revalidatePath("/supervisor");
+    revalidatePath("/display-control");
     return { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not delete account." };

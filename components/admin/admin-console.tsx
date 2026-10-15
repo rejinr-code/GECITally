@@ -1,14 +1,13 @@
 "use client";
 
-import type { Candidate, Election, Panel, Post, Profile } from "@/lib/types";
+import type { Candidate, Election, Panel, Post } from "@/lib/types";
 import { ElectionSettings } from "@/components/admin/election-settings";
 import { PanelManager } from "@/components/admin/panel-manager";
 import { PostEditor } from "@/components/admin/post-editor";
-import { StaffManager } from "@/components/admin/staff-manager";
+import { StaffManager, type PersonRow } from "@/components/admin/staff-manager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type PostWithCandidates = Post & { candidates: Candidate[] };
-type StaffRow = Profile & { assigned_post_ids: string[] };
 
 export function AdminConsole({
   election,
@@ -16,6 +15,7 @@ export function AdminConsole({
   panels,
   posts,
   people,
+  currentUserId,
   countingStarted,
   schemaNeedsUpdate,
   schemaNeedsCandidateClass,
@@ -31,7 +31,8 @@ export function AdminConsole({
   electionId: string | null;
   panels: Panel[];
   posts: PostWithCandidates[];
-  people: StaffRow[];
+  people: PersonRow[];
+  currentUserId: string;
   countingStarted: boolean;
   schemaNeedsUpdate: boolean;
   schemaNeedsCandidateClass: boolean;
@@ -122,7 +123,7 @@ export function AdminConsole({
           />
         </TabsContent>
         <TabsContent value="people">
-          <StaffManager posts={posts} people={people} />
+          <StaffManager posts={posts} people={people} currentUserId={currentUserId} />
         </TabsContent>
       </Tabs>
     </div>

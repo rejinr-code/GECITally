@@ -258,6 +258,7 @@ export default async function StaffPostPage({
       </div>
       <div className="grid min-h-0 flex-1 items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
         <CountForm
+          key={`${postId}-${nextRound}-${pending?.id ?? "open"}`}
           postId={postId}
           postName={post.name}
           roundNumber={nextRound}

@@ -5,6 +5,7 @@ import "package:flutter/material.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
 import "../count_desk.dart";
+import "../count_draft_store.dart";
 import "../counting_math.dart";
 import "../models.dart";
 import "../session.dart";
@@ -31,6 +32,8 @@ class DeskScreen extends StatefulWidget {
 class _DeskScreenState extends State<DeskScreen> {
   DeskSnapshot? _snapshot;
   CountDeskController? _desk;
+  int _roundNumber = 1;
+  bool _restoring = false;
   bool _loading = true;
   String? _error;
   RealtimeChannel? _channel;
@@ -49,8 +52,21 @@ class _DeskScreenState extends State<DeskScreen> {
       ..subscribe();
   }
 
+  void _onDeskChanged() {
+    final desk = _desk;
+    if (_restoring || desk == null || desk.isSubmitting) return;
+    unawaited(
+      CountDraftStore.save(
+        postId: widget.postId,
+        roundNumber: _roundNumber,
+        desk: desk,
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    _desk?.removeListener(_onDeskChanged);
     _desk?.dispose();
     final channel = _channel;
     if (channel != null) {
@@ -62,6 +78,14 @@ class _DeskScreenState extends State<DeskScreen> {
   Future<void> _reload({bool silent = false}) async {
     final userId = widget.session.user?.id;
     if (userId == null) return;
+    final current = _desk;
+    if (current != null && current.hasUnsavedBallots) {
+      await CountDraftStore.save(
+        postId: widget.postId,
+        roundNumber: _roundNumber,
+        desk: current,
+      );
+    }
     if (!silent) setState(() => _loading = true);
     try {
       final snapshot = await widget.api.loadDesk(
@@ -69,7 +93,6 @@ class _DeskScreenState extends State<DeskScreen> {
         postId: widget.postId,
       );
       if (!mounted) return;
-      _desk?.dispose();
       final counted = countedBallotsFromRounds(
         rounds: [
           for (final round in snapshot.postRounds)
@@ -80,22 +103,49 @@ class _DeskScreenState extends State<DeskScreen> {
         ],
         seats: snapshot.post.seats,
       );
+      final roundNumber = _nextRound(snapshot);
+      final pending = snapshot.myRounds.where((round) => round.isPending).firstOrNull;
+      final desk = CountDeskController(
+        candidates: snapshot.candidates,
+        seats: snapshot.post.seats,
+        roundSize: math.max(1, snapshot.election.countLimit),
+        votesPolled: snapshot.post.votesPolled,
+        countedBallots: counted,
+        countingOpen: snapshot.election.countingOpen,
+        requireSupervisor: snapshot.requireSupervisor,
+        pendingRound: pending,
+        rejectedRound: snapshot.myRounds.where((round) => round.isRejected).firstOrNull,
+      );
+      var restored = false;
+      if (pending == null) {
+        final stored = await CountDraftStore.load(widget.postId, roundNumber);
+        if (stored != null) {
+          _restoring = true;
+          restored = CountDraftStore.applyTo(desk, stored);
+          _restoring = false;
+        }
+      } else {
+        await CountDraftStore.clear(widget.postId);
+      }
+      if (!mounted) {
+        desk.dispose();
+        return;
+      }
+      _desk?.removeListener(_onDeskChanged);
+      _desk?.dispose();
+      desk.addListener(_onDeskChanged);
       setState(() {
         _snapshot = snapshot;
-        _desk = CountDeskController(
-          candidates: snapshot.candidates,
-          seats: snapshot.post.seats,
-          roundSize: math.max(1, snapshot.election.countLimit),
-          votesPolled: snapshot.post.votesPolled,
-          countedBallots: counted,
-          countingOpen: snapshot.election.countingOpen,
-          requireSupervisor: snapshot.requireSupervisor,
-          pendingRound: snapshot.myRounds.where((round) => round.isPending).firstOrNull,
-          rejectedRound: snapshot.myRounds.where((round) => round.isRejected).firstOrNull,
-        );
+        _desk = desk;
+        _roundNumber = roundNumber;
         _error = null;
         _loading = false;
       });
+      if (restored && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Unsaved ballots for this round were restored.")),
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -214,7 +264,20 @@ class _CountingView extends StatelessWidget {
 
   Future<void> _openSubmit(BuildContext context) async {
     desk.commitPending();
-    if (!desk.canSubmit) return;
+    if (!desk.canSubmit) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              desk.isLastRound
+                  ? "Count every remaining ballot before submitting this last round."
+                  : "This round is not ready to submit.",
+            ),
+          ),
+        );
+      }
+      return;
+    }
     await showDialog<void>(
       context: context,
       barrierDismissible: !desk.isSubmitting,
@@ -355,16 +418,20 @@ class _CountingView extends StatelessWidget {
                               onPressed: desk.isSubmitting
                                   ? null
                                   : () async {
+                                      final entries = desk.submitEntries();
+                                      final invalidVotes = desk.submitInvalidCount;
+                                      final invalidSlots = desk.submitInvalidSlots();
                                       final message = await desk.runSubmit(() {
                                         return api.submitCountRound(
                                           postId: snapshot.post.id,
-                                          entries: desk.submitEntries(),
-                                          invalidVotes: desk.submitInvalidCount,
-                                          invalidSlotVotes: desk.submitInvalidSlots(),
+                                          entries: entries,
+                                          invalidVotes: invalidVotes,
+                                          invalidSlotVotes: invalidSlots,
                                         );
                                       });
                                       if (!dialogContext.mounted) return;
                                       if (message != null) return;
+                                      await CountDraftStore.clear(snapshot.post.id);
                                       Navigator.pop(dialogContext);
                                       await onReload();
                                       if (context.mounted) {

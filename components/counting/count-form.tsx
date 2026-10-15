@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAntiDuplicate } from "@/hooks/use-anti-duplicate";
 import { submitCountRound } from "@/lib/actions/counting";
+import { clearCountDraft, loadCountDraft, saveCountDraft } from "@/lib/count-draft";
 import type { Candidate, CountRound } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,6 +73,13 @@ type CountResult = {
   entries: Array<{ candidate_id: string; votes: number; slot_votes?: number[] }>;
   invalid: number;
   invalidSlots: number[];
+};
+
+type RoundPayload = {
+  entries: CountResult["entries"];
+  invalidCount: number;
+  invalidSlots: number[];
+  ballots: number;
 };
 
 type Props = {
@@ -168,7 +176,10 @@ export function CountForm({
   const [lastSlot, setLastSlot] = useState<number | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
+  const [limitBallots, setLimitBallots] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const payloadRef = useRef<RoundPayload | null>(null);
   const router = useRouter();
   const { isSubmitting, run } = useAntiDuplicate();
 
@@ -214,6 +225,62 @@ export function CountForm({
     !fillingBallot &&
     effectiveTotal > 0 &&
     (exactRoundRequired ? effectiveTotal === roundCap : effectiveTotal <= roundSize);
+
+  useEffect(() => {
+    if (pendingRound) {
+      setDraftReady(true);
+      return;
+    }
+    const stored = loadCountDraft(postId, roundNumber);
+    if (stored) {
+      setVotes({ ...emptyTally(candidates, marksPerBallot), ...stored.votes });
+      setPendingAdds(stored.pendingAdds);
+      setCandidateSlots({ ...emptySlotMap(candidates, marksPerBallot), ...stored.candidateSlots });
+      setPendingCandidateSlots({
+        ...emptySlotMap(candidates, marksPerBallot),
+        ...stored.pendingCandidateSlots,
+      });
+      setDraft(stored.draft.length === marksPerBallot ? stored.draft : emptyDraft(marksPerBallot));
+      setLastId(stored.lastId);
+      setLastSlot(stored.lastSlot);
+      toast.message("Unsaved ballots for this round were restored.");
+    }
+    setDraftReady(true);
+    // Restore once per post/round. Candidate lists are stable for a desk session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remounted via key when the round changes
+  }, [postId, roundNumber, pendingRound?.id]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    if (pendingRound) {
+      clearCountDraft(postId);
+      return;
+    }
+    saveCountDraft({
+      postId,
+      roundNumber,
+      votes,
+      pendingAdds,
+      candidateSlots,
+      pendingCandidateSlots,
+      draft,
+      lastId,
+      lastSlot,
+      savedAt: Date.now(),
+    });
+  }, [
+    draftReady,
+    postId,
+    roundNumber,
+    pendingRound?.id,
+    votes,
+    pendingAdds,
+    candidateSlots,
+    pendingCandidateSlots,
+    draft,
+    lastId,
+    lastSlot,
+  ]);
 
   function applyDraft(next: (string | null)[]) {
     setDraft(next);
@@ -312,6 +379,7 @@ export function CountForm({
     const nextTotal = committedTotal + pendingTotal;
     if (!commitPending()) return;
     if (nextTotal >= roundCap && roundCap > 0) {
+      setLimitBallots(nextTotal);
       setLimitOpen(true);
     }
   }
@@ -324,7 +392,8 @@ export function CountForm({
         [...(candidateSlots[candidate.id] ?? Array.from({ length: marksPerBallot }, () => 0))],
       ]),
     ) as Record<string, number[]>;
-    if (queuedBallots > 0) {
+    const includePending = !fillingBallot && pendingTotalOf(pendingAdds) > 0;
+    if (includePending) {
       for (const [id, extra] of Object.entries(pendingAdds)) {
         if (extra > 0) tally[id] = (tally[id] ?? 0) + extra;
       }
@@ -361,7 +430,19 @@ export function CountForm({
   }
 
   function openSubmit() {
-    if (!canSubmit) return;
+    if (fillingBallot) {
+      toast.error("Finish the current ballot before submitting.");
+      return;
+    }
+    const payload = roundPayload();
+    if (!canSubmit || payload.ballots <= 0) return;
+    if (exactRoundRequired && payload.ballots !== roundCap) {
+      const message = `This round must contain ${formatNumber(roundCap)} ballots.`;
+      setError(message);
+      toast.error(message);
+      return;
+    }
+    payloadRef.current = payload;
     commitPending();
     setError(null);
     setLimitOpen(false);
@@ -377,6 +458,8 @@ export function CountForm({
 
   function recountRound() {
     if (isSubmitting) return;
+    payloadRef.current = null;
+    clearCountDraft(postId);
     setSubmitOpen(false);
     setLimitOpen(false);
     setPendingAdds({});
@@ -392,19 +475,32 @@ export function CountForm({
   }
 
   async function confirmSubmit() {
+    const payload = payloadRef.current ?? roundPayload();
+    if (payload.ballots <= 0) {
+      toast.error("This round has no ballots to submit.");
+      return;
+    }
+    if (exactRoundRequired && payload.ballots !== roundCap) {
+      const message = `This round must contain ${formatNumber(roundCap)} ballots.`;
+      setError(message);
+      toast.error(message);
+      return;
+    }
     await run(async () => {
-      const payload = roundPayload();
       const result = await submitCountRound(
         postId,
         payload.entries,
         payload.invalidCount,
         multiSeat ? payload.invalidSlots : undefined,
       );
-      if (result.error) {
-        setError(result.error);
-        toast.error(result.error);
+      if (result.error || !("round" in result) || !result.round) {
+        const message = result.error ?? "The round was not saved. Submit again.";
+        setError(message);
+        toast.error(message);
         return;
       }
+      payloadRef.current = null;
+      clearCountDraft(postId);
       toast.success(
         requireSupervisor
           ? `Round ${roundNumber} submitted for verification.`
@@ -435,7 +531,7 @@ export function CountForm({
   }
 
   const lastVoteLabel = labelForId(lastId);
-  const submitPreview = roundPayload();
+  const submitPreview = (submitOpen && payloadRef.current) || roundPayload();
 
   const tableRows: Array<{
     id: string;
@@ -945,7 +1041,7 @@ export function CountForm({
             </DialogTitle>
             <DialogDescription>
               {isLastRound
-                ? `This last round has ${formatNumber(committedTotal)} ballots, which is all that remain for this post.`
+                ? `This last round has ${formatNumber(limitBallots || committedTotal)} ballots, which is all that remain for this post.`
                 : `This round has reached the set count of ${formatNumber(roundSize)} ballots.`}{" "}
               Review and submit this round.
             </DialogDescription>
